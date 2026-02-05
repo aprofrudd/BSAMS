@@ -1,9 +1,12 @@
 'use client';
 
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 
 export function AppHeader() {
   const { user, logout } = useAuth();
+  const pathname = usePathname();
 
   return (
     <header className="bg-primary-dark border-b border-secondary-muted px-4 sm:px-6 py-3 sm:py-4 sticky top-0 z-50">
@@ -12,6 +15,26 @@ export function AppHeader() {
         <nav className="flex items-center gap-4">
           {user ? (
             <>
+              <Link
+                href="/"
+                className={`text-sm transition-colors ${
+                  pathname === '/'
+                    ? 'text-accent'
+                    : 'text-white/60 hover:text-white'
+                }`}
+              >
+                Dashboard
+              </Link>
+              <Link
+                href="/upload"
+                className={`text-sm transition-colors ${
+                  pathname === '/upload'
+                    ? 'text-accent'
+                    : 'text-white/60 hover:text-white'
+                }`}
+              >
+                Upload
+              </Link>
               <span className="text-white/60 text-sm hidden sm:inline">
                 {user.email}
               </span>
