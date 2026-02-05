@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     supabase_key: str = ""
 
     # Development Mode
+    dev_mode: bool = False
     dev_user_id: str = "00000000-0000-0000-0000-000000000001"
 
     # API Settings

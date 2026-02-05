@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth';
 import { AthleteSelector } from '@/components/AthleteSelector';
 import { DataViewControls } from '@/components/DataViewControls';
 import { PerformanceTable } from '@/components/PerformanceTable';
@@ -8,9 +10,25 @@ import { PerformanceGraph } from '@/components/PerformanceGraph';
 import type { Athlete, ReferenceGroup, ViewMode } from '@/lib/types';
 
 export default function Dashboard() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
   const [selectedAthlete, setSelectedAthlete] = useState<Athlete | null>(null);
   const [referenceGroup, setReferenceGroup] = useState<ReferenceGroup>('cohort');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace('/login');
+    }
+  }, [loading, user, router]);
+
+  if (loading || !user) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <p className="text-white/60">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">

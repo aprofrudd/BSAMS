@@ -13,11 +13,15 @@ class TestSettings:
 
     def test_default_values(self):
         """Settings should have sensible defaults."""
-        settings = Settings()
-        assert settings.supabase_url == ""
-        assert settings.supabase_key == ""
-        assert settings.dev_user_id == "00000000-0000-0000-0000-000000000001"
-        assert settings.api_v1_prefix == "/api/v1"
+        # Clear DEV_MODE set by conftest to test true defaults
+        env = {k: v for k, v in os.environ.items() if k != "DEV_MODE"}
+        with patch.dict(os.environ, env, clear=True):
+            settings = Settings()
+            assert settings.supabase_url == ""
+            assert settings.supabase_key == ""
+            assert settings.dev_mode is False
+            assert settings.dev_user_id == "00000000-0000-0000-0000-000000000001"
+            assert settings.api_v1_prefix == "/api/v1"
 
     def test_loads_from_environment(self):
         """Settings should load from environment variables."""

@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { AuthProvider } from '@/lib/auth';
+import { AppHeader } from '@/components/AppHeader';
 
 export const metadata: Metadata = {
   title: 'BSAMS - Boxing Science Athlete Management System',
@@ -19,17 +21,12 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
       <body className="min-h-screen">
-        <header className="bg-primary-dark border-b border-secondary-muted px-4 sm:px-6 py-3 sm:py-4 sticky top-0 z-50">
-          <div className="flex items-center justify-between max-w-7xl mx-auto">
-            <h1 className="text-lg sm:text-xl font-bold text-accent">BSAMS</h1>
-            <nav className="flex gap-4">
-              <span className="text-white/60 text-sm">Dashboard</span>
-            </nav>
-          </div>
-        </header>
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
-          {children}
-        </main>
+        <AuthProvider>
+          <AppHeader />
+          <main className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+            {children}
+          </main>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -11,11 +11,28 @@ import type {
 
 const API_BASE = '/api/v1';
 
+let authToken: string | null = null;
+
+export function setAuthToken(token: string | null) {
+  authToken = token;
+}
+
+export function getAuthToken(): string | null {
+  return authToken;
+}
+
 class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
     this.name = 'ApiError';
   }
+}
+
+function authHeaders(): Record<string, string> {
+  if (authToken) {
+    return { Authorization: `Bearer ${authToken}` };
+  }
+  return {};
 }
 
 async function fetchApi<T>(
@@ -25,6 +42,7 @@ async function fetchApi<T>(
   const response = await fetch(`${API_BASE}${endpoint}`, {
     headers: {
       'Content-Type': 'application/json',
+      ...authHeaders(),
       ...options?.headers,
     },
     ...options,
@@ -37,6 +55,33 @@ async function fetchApi<T>(
 
   return response.json();
 }
+
+// Auth API
+export interface AuthResponse {
+  access_token: string;
+  user_id: string;
+  email: string;
+}
+
+export const authApi = {
+  login: (email: string, password: string) =>
+    fetchApi<AuthResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+
+  signup: (email: string, password: string) =>
+    fetchApi<AuthResponse>('/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+
+  logout: () =>
+    fetchApi<void>('/auth/logout', { method: 'POST' }),
+
+  me: () =>
+    fetchApi<{ user_id: string }>('/auth/me'),
+};
 
 // Athletes API
 export const athletesApi = {
@@ -131,6 +176,7 @@ export const uploadApi = {
 
     const response = await fetch(url, {
       method: 'POST',
+      headers: authHeaders(),
       body: formData,
     });
 
@@ -148,6 +194,7 @@ export const uploadApi = {
 
     const response = await fetch(`${API_BASE}/uploads/csv/preview`, {
       method: 'POST',
+      headers: authHeaders(),
       body: formData,
     });
 
