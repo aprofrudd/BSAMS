@@ -46,10 +46,10 @@ npm test         # Run tests
 ### Backend Structure
 ```
 backend/app/
-├── routers/     # API endpoints (athletes, uploads, analysis)
+├── routers/     # API endpoints (auth, athletes, uploads, analysis)
 ├── services/    # Business logic (ingest_csv, stat_engine, benchmarks)
-├── schemas/     # Pydantic models
-└── core/        # Config, Supabase client, security
+├── schemas/     # Pydantic models (athlete, event, auth, upload)
+└── core/        # Config, Supabase client, security (JWT validation)
 ```
 
 ### Key Services
@@ -60,9 +60,9 @@ backend/app/
 ### Frontend Structure
 ```
 frontend/
-├── app/         # Next.js pages
-├── components/  # AthleteSelector, DataViewControls, PerformanceGraph, PerformanceTable
-└── lib/         # API client, hooks, utils
+├── app/         # Next.js pages (dashboard, login)
+├── components/  # AppHeader, AthleteSelector, DataViewControls, PerformanceGraph, PerformanceTable
+└── lib/         # API client, auth context, hooks, utils
 ```
 
 ## Design System
@@ -81,7 +81,7 @@ Dark mode default with high-contrast white text. Mobile-first (iPad priority).
 
 1. **Dynamic Z-scores:** Calculate on-read, not stored in database
 2. **Metric-agnostic design:** JSONB metrics column avoids schema migrations for new test types
-3. **Auth bypass (dev mode):** `get_current_user()` returns hardcoded UUID during development
+3. **Auth:** Supabase Auth with JWT validation. `DEV_MODE=true` bypasses JWT and returns hardcoded UUID for local development
 4. **Date parsing:** Strictly DD/MM/YYYY format
 
 ## Development Rules
