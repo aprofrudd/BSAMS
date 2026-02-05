@@ -238,7 +238,7 @@ class TestFullFlowIntegration:
         assert created_athlete["name"] == "John Doe"
 
         # === Step 2: Upload CSV with performance data ===
-        csv_content = """Date,Athlete,CMJ Height (cm),Body Mass (kg)
+        csv_content = """Test Date,Athlete,CMJ Height (cm),Body Mass (kg)
 15/01/2024,John Doe,45.5,72.5
 22/01/2024,John Doe,46.2,72.8
 """

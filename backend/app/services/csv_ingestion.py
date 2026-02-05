@@ -116,6 +116,10 @@ class CSVIngestionService:
         events: List[Dict[str, Any]] = []
         errors: List[RowError] = []
 
+        # Strip BOM if present
+        if csv_content.startswith("\ufeff"):
+            csv_content = csv_content[1:]
+
         # Parse CSV
         reader = csv.DictReader(io.StringIO(csv_content))
 
@@ -188,6 +192,13 @@ class CSVIngestionService:
             event["athlete_id"] = str(athlete_id)
         elif self.mapping.athlete_column and self.mapping.athlete_column in row:
             event["athlete_name"] = row[self.mapping.athlete_column].strip()
+        elif self.mapping.first_name_column and self.mapping.first_name_column in row:
+            # Build name from First Name + Surname columns
+            first = row.get(self.mapping.first_name_column, "").strip()
+            surname = row.get(self.mapping.surname_column or "", "").strip()
+            full_name = f"{first} {surname}".strip() if surname else first
+            if full_name:
+                event["athlete_name"] = full_name
 
         return event
 
@@ -202,6 +213,10 @@ class CSVIngestionService:
             List of validation warnings/errors.
         """
         warnings: List[str] = []
+
+        # Strip BOM if present
+        if csv_content.startswith("\ufeff"):
+            csv_content = csv_content[1:]
 
         try:
             reader = csv.DictReader(io.StringIO(csv_content))

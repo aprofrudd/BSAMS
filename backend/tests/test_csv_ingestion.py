@@ -18,7 +18,7 @@ def service():
 @pytest.fixture
 def sample_csv():
     """Sample CSV content for testing."""
-    return """Date,Athlete,Body Mass (kg),CMJ Height (cm),CMJ RSI
+    return """Test Date,Athlete,Body Mass (kg),CMJ Height (cm),CMJ RSI
 15/01/2024,John Doe,75.5,45.2,1.25
 16/01/2024,John Doe,75.3,46.1,1.30
 17/01/2024,John Doe,75.0,44.8,1.22"""
@@ -27,7 +27,7 @@ def sample_csv():
 @pytest.fixture
 def sample_csv_with_errors():
     """Sample CSV with some invalid rows."""
-    return """Date,Athlete,Body Mass (kg),CMJ Height (cm)
+    return """Test Date,Athlete,Body Mass (kg),CMJ Height (cm)
 15/01/2024,John Doe,75.5,45.2
 invalid-date,Jane Doe,70.0,42.0
 17/01/2024,Bob Smith,not-a-number,43.5
@@ -193,14 +193,14 @@ class TestProcessCSV:
 
     def test_process_empty_csv(self, service):
         """Should handle empty CSV."""
-        events, errors = service.process_csv("Date,CMJ Height (cm)\n")
+        events, errors = service.process_csv("Test Date,CMJ Height (cm)\n")
 
         assert len(events) == 0
         assert len(errors) == 0
 
     def test_skip_rows_without_metrics(self, service):
         """Should skip rows that have no valid metrics."""
-        csv_content = """Date,Body Mass (kg)
+        csv_content = """Test Date,Body Mass (kg)
 15/01/2024,75.5
 16/01/2024,76.0"""
 
@@ -225,14 +225,14 @@ class TestValidateCSVStructure:
 
     def test_missing_metric_columns(self, service):
         """Should warn about missing metric columns."""
-        csv_content = "Date,Athlete\n15/01/2024,John"
+        csv_content = "Test Date,Athlete\n15/01/2024,John"
         warnings = service.validate_csv_structure(csv_content)
 
         assert any("metric columns" in w.lower() for w in warnings)
 
     def test_missing_mass_column_warning(self, service):
         """Should warn about missing mass column (but not error)."""
-        csv_content = "Date,CMJ Height (cm)\n15/01/2024,45.5"
+        csv_content = "Test Date,CMJ Height (cm)\n15/01/2024,45.5"
         warnings = service.validate_csv_structure(csv_content)
 
         mass_warnings = [w for w in warnings if "mass" in w.lower()]
@@ -245,10 +245,10 @@ class TestCustomColumnMapping:
 
     def test_custom_date_column(self):
         """Should use custom date column name."""
-        mapping = CSVColumnMapping(date_column="Test Date")
+        mapping = CSVColumnMapping(date_column="Assessment Date")
         service = CSVIngestionService(mapping)
 
-        csv_content = "Test Date,CMJ Height (cm)\n15/01/2024,45.5"
+        csv_content = "Assessment Date,CMJ Height (cm)\n15/01/2024,45.5"
         events, errors = service.process_csv(csv_content)
 
         assert len(events) == 1
@@ -257,6 +257,7 @@ class TestCustomColumnMapping:
     def test_custom_metric_mapping(self):
         """Should use custom metric column mapping."""
         mapping = CSVColumnMapping(
+            date_column="Date",
             metric_columns={
                 "Jump Height": {"test_type": "CMJ", "metric_key": "height_cm"},
             }

@@ -25,7 +25,7 @@ def mock_supabase():
 @pytest.fixture
 def sample_csv_content():
     """Sample CSV content for testing."""
-    return """Date,Athlete,Body Mass (kg),CMJ Height (cm),CMJ RSI
+    return """Test Date,Athlete,Body Mass (kg),CMJ Height (cm),CMJ RSI
 15/01/2024,John Doe,75.5,45.2,1.25
 16/01/2024,John Doe,75.3,46.1,1.30"""
 
@@ -129,7 +129,7 @@ class TestUploadCSV:
 
     def test_upload_empty_csv_rejected(self, mock_supabase):
         """Should reject CSV with no valid data."""
-        csv_content = "Date,CMJ Height (cm)\n"
+        csv_content = "Test Date,CMJ Height (cm)\n"
 
         response = client.post(
             "/api/v1/uploads/csv",
@@ -192,7 +192,7 @@ class TestPreviewCSV:
 
     def test_preview_csv_with_errors(self):
         """Should return errors in preview."""
-        csv_content = """Date,CMJ Height (cm)
+        csv_content = """Test Date,CMJ Height (cm)
 15/01/2024,45.5
 invalid-date,46.0"""
 
@@ -208,7 +208,7 @@ invalid-date,46.0"""
 
     def test_preview_csv_with_warnings(self):
         """Should return structure warnings."""
-        csv_content = """Date,Some Column
+        csv_content = """Test Date,Some Column
 15/01/2024,value"""
 
         response = client.post(

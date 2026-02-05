@@ -23,14 +23,21 @@ class CSVUploadResult(BaseModel):
 class CSVColumnMapping(BaseModel):
     """Mapping configuration for CSV columns."""
 
-    date_column: str = Field(default="Date", description="Column name for test date")
+    date_column: str = Field(default="Test Date", description="Column name for test date")
     mass_column: str = Field(default="Body Mass (kg)", description="Column name for body mass")
     athlete_column: Optional[str] = Field(default="Athlete", description="Column name for athlete name")
+    first_name_column: Optional[str] = Field(default="First Name", description="Column for first name")
+    surname_column: Optional[str] = Field(default="Surname", description="Column for surname")
 
     # Metric mappings: CSV column name -> (test_type, metric_key)
     metric_columns: Dict[str, Dict[str, str]] = Field(
         default_factory=lambda: {
             "CMJ Height (cm)": {"test_type": "CMJ", "metric_key": "height_cm"},
+            "SJ Height (cm)": {"test_type": "SJ", "metric_key": "sj_height_cm"},
+            "EUR (cm)": {"test_type": "CMJ", "metric_key": "eur_cm"},
+            "RSI": {"test_type": "CMJ", "metric_key": "rsi"},
+            "RSI Flight (ms)": {"test_type": "CMJ", "metric_key": "flight_time_ms"},
+            "RSI Contact (ms)": {"test_type": "CMJ", "metric_key": "contraction_time_ms"},
             "CMJ RSI": {"test_type": "CMJ", "metric_key": "rsi"},
             "CMJ Flight Time (ms)": {"test_type": "CMJ", "metric_key": "flight_time_ms"},
             "CMJ Contraction Time (ms)": {"test_type": "CMJ", "metric_key": "contraction_time_ms"},
