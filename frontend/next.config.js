@@ -7,8 +7,9 @@ const nextConfig = {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     return [
       {
-        source: '/api/v1/:path*',
-        destination: `${apiUrl}/api/v1/:path*`,
+        // Use regex to preserve trailing slashes in proxied path
+        source: '/api/:path(.*)',
+        destination: `${apiUrl}/api/:path`,
       },
     ];
   },
