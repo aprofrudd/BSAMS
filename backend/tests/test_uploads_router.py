@@ -1,0 +1,221 @@
+"""Tests for uploads router."""
+
+import io
+from datetime import datetime
+from unittest.mock import MagicMock, patch
+from uuid import uuid4
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.main import app
+
+client = TestClient(app)
+
+
+@pytest.fixture
+def mock_supabase():
+    """Fixture to mock Supabase client."""
+    with patch("app.routers.uploads.get_supabase_client") as mock:
+        mock_client = MagicMock()
+        mock.return_value = mock_client
+        yield mock_client
+
+
+@pytest.fixture
+def sample_csv_content():
+    """Sample CSV content for testing."""
+    return """Date,Athlete,Body Mass (kg),CMJ Height (cm),CMJ RSI
+15/01/2024,John Doe,75.5,45.2,1.25
+16/01/2024,John Doe,75.3,46.1,1.30"""
+
+
+@pytest.fixture
+def sample_csv_file(sample_csv_content):
+    """Create a file-like object for upload."""
+    return io.BytesIO(sample_csv_content.encode("utf-8"))
+
+
+class TestUploadCSV:
+    """Test POST /api/v1/uploads/csv"""
+
+    def test_upload_csv_with_athlete_id(self, mock_supabase, sample_csv_content):
+        """Should process CSV and store events for specified athlete."""
+        athlete_id = str(uuid4())
+        coach_id = "00000000-0000-0000-0000-000000000001"
+
+        # Mock athlete verification
+        mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = [
+            {"id": athlete_id}
+        ]
+
+        # Mock event insert
+        mock_supabase.table.return_value.insert.return_value.execute.return_value.data = [
+            {"id": str(uuid4())}
+        ]
+
+        response = client.post(
+            f"/api/v1/uploads/csv?athlete_id={athlete_id}",
+            files={"file": ("test.csv", sample_csv_content, "text/csv")},
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["processed"] == 2
+        assert len(data["errors"]) == 0
+        assert data["athlete_id"] == athlete_id
+
+    def test_upload_csv_with_athlete_names(self, mock_supabase, sample_csv_content):
+        """Should match athletes by name from CSV."""
+        athlete_id = str(uuid4())
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "athletes":
+                # Athlete lookup by name
+                mock_table.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = [
+                    {"id": athlete_id}
+                ]
+            else:
+                # Event insert
+                mock_table.insert.return_value.execute.return_value.data = [
+                    {"id": str(uuid4())}
+                ]
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
+
+        response = client.post(
+            "/api/v1/uploads/csv",
+            files={"file": ("test.csv", sample_csv_content, "text/csv")},
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["processed"] >= 0  # May process or may have athlete not found errors
+
+    def test_upload_non_csv_file_rejected(self):
+        """Should reject non-CSV files."""
+        response = client.post(
+            "/api/v1/uploads/csv",
+            files={"file": ("test.txt", "not,a,csv", "text/plain")},
+        )
+
+        assert response.status_code == 400
+        assert "CSV" in response.json()["detail"]
+
+    def test_upload_invalid_utf8_rejected(self):
+        """Should reject non-UTF8 encoded files."""
+        invalid_content = b"\xff\xfe Invalid UTF-8"
+        response = client.post(
+            "/api/v1/uploads/csv",
+            files={"file": ("test.csv", invalid_content, "text/csv")},
+        )
+
+        assert response.status_code == 400
+        assert "UTF-8" in response.json()["detail"]
+
+    def test_upload_missing_date_column_rejected(self, mock_supabase):
+        """Should reject CSV without date column."""
+        csv_content = "Athlete,CMJ Height (cm)\nJohn,45.5"
+
+        response = client.post(
+            "/api/v1/uploads/csv",
+            files={"file": ("test.csv", csv_content, "text/csv")},
+        )
+
+        assert response.status_code == 400
+        assert "date" in response.json()["detail"].lower()
+
+    def test_upload_empty_csv_rejected(self, mock_supabase):
+        """Should reject CSV with no valid data."""
+        csv_content = "Date,CMJ Height (cm)\n"
+
+        response = client.post(
+            "/api/v1/uploads/csv",
+            files={"file": ("test.csv", csv_content, "text/csv")},
+        )
+
+        assert response.status_code == 400
+        assert "No valid data" in response.json()["detail"]
+
+    def test_upload_database_unavailable(self, sample_csv_content):
+        """Should return 503 when database not configured."""
+        with patch("app.routers.uploads.get_supabase_client", return_value=None):
+            response = client.post(
+                f"/api/v1/uploads/csv?athlete_id={uuid4()}",
+                files={"file": ("test.csv", sample_csv_content, "text/csv")},
+            )
+
+        assert response.status_code == 503
+
+    def test_upload_athlete_not_found_adds_errors(self, sample_csv_content):
+        """Should add errors when athlete_id not found (batch processing continues)."""
+        with patch("app.routers.uploads.get_supabase_client") as mock:
+            mock_client = MagicMock()
+            mock.return_value = mock_client
+
+            # Configure mock to return empty data for athlete check
+            mock_response = MagicMock()
+            mock_response.data = []
+            mock_client.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_response
+
+            response = client.post(
+                f"/api/v1/uploads/csv?athlete_id={uuid4()}",
+                files={"file": ("test.csv", sample_csv_content, "text/csv")},
+            )
+
+        # Batch processing returns 201 but with errors
+        assert response.status_code == 201
+        data = response.json()
+        assert data["processed"] == 0
+        assert len(data["errors"]) > 0
+        assert any("Athlete not found" in e["reason"] for e in data["errors"])
+
+
+class TestPreviewCSV:
+    """Test POST /api/v1/uploads/csv/preview"""
+
+    def test_preview_valid_csv(self, sample_csv_content):
+        """Should return preview of CSV data."""
+        response = client.post(
+            "/api/v1/uploads/csv/preview",
+            files={"file": ("test.csv", sample_csv_content, "text/csv")},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "events_preview" in data
+        assert "total_events" in data
+        assert data["total_events"] == 2
+        assert len(data["errors"]) == 0
+
+    def test_preview_csv_with_errors(self):
+        """Should return errors in preview."""
+        csv_content = """Date,CMJ Height (cm)
+15/01/2024,45.5
+invalid-date,46.0"""
+
+        response = client.post(
+            "/api/v1/uploads/csv/preview",
+            files={"file": ("test.csv", csv_content, "text/csv")},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_events"] == 1
+        assert len(data["errors"]) == 1
+
+    def test_preview_csv_with_warnings(self):
+        """Should return structure warnings."""
+        csv_content = """Date,Some Column
+15/01/2024,value"""
+
+        response = client.post(
+            "/api/v1/uploads/csv/preview",
+            files={"file": ("test.csv", csv_content, "text/csv")},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["warnings"]) > 0

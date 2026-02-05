@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #090A3D;
+  --color-primary-dark: #07083D;
+  --color-accent: #33CBF4;
+  --color-secondary: #2074AA;
+  --color-secondary-muted: #2D5585;
+}
+
+body {
+  background-color: var(--color-primary);
+  color: white;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Scrollbar styling for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-primary-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-secondary-muted);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-secondary);
+}
+
+/* Custom utility classes */
+@layer components {
+  .btn-primary {
+    @apply bg-accent hover:bg-accent-hover text-primary font-semibold px-4 py-2 rounded-lg transition-colors;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary-muted hover:bg-secondary text-white font-semibold px-4 py-2 rounded-lg transition-colors;
+  }
+
+  .card {
+    @apply bg-primary-dark rounded-xl p-4 border border-secondary-muted;
+  }
+
+  .input {
+    @apply bg-primary-dark border border-secondary-muted rounded-lg px-3 py-2 text-white focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent;
+  }
+
+  .select {
+    @apply bg-primary-dark border border-secondary-muted rounded-lg px-3 py-2 text-white focus:border-accent focus:outline-none cursor-pointer;
+  }
+}
