@@ -28,6 +28,7 @@ class CSVColumnMapping(BaseModel):
     athlete_column: Optional[str] = Field(default="Athlete", description="Column name for athlete name")
     first_name_column: Optional[str] = Field(default="First Name", description="Column for first name")
     surname_column: Optional[str] = Field(default="Surname", description="Column for surname")
+    gender_column: Optional[str] = Field(default="Gender", description="Column for gender")
 
     # Metric mappings: CSV column name -> (test_type, metric_key)
     metric_columns: Dict[str, Dict[str, str]] = Field(

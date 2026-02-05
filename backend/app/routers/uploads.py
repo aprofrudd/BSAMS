@@ -74,6 +74,14 @@ async def upload_csv(
             detail="Database not configured",
         )
 
+    # Pre-scan events to collect gender per athlete name
+    athlete_gender: dict[str, str] = {}
+    for event in events:
+        name = event.get("athlete_name")
+        gender = event.get("gender")
+        if name and gender and name not in athlete_gender:
+            athlete_gender[name] = gender
+
     # Store events in database
     processed_count = 0
     athlete_cache: dict[str, str] = {}  # name -> id cache
@@ -118,10 +126,15 @@ async def upload_csv(
                     if athlete_result.data:
                         resolved_athlete_id = athlete_result.data[0]["id"]
                     else:
-                        # Auto-create athlete
+                        # Auto-create athlete with gender
+                        gender = athlete_gender.get(athlete_name, "male")
                         new_athlete = (
                             client.table("athletes")
-                            .insert({"name": athlete_name, "coach_id": str(current_user)})
+                            .insert({
+                                "name": athlete_name,
+                                "coach_id": str(current_user),
+                                "gender": gender,
+                            })
                             .execute()
                         )
                         resolved_athlete_id = new_athlete.data[0]["id"]

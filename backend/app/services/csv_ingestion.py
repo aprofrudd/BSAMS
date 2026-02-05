@@ -200,6 +200,13 @@ class CSVIngestionService:
             if full_name:
                 event["athlete_name"] = full_name
 
+        # Extract gender if available
+        gender_col = self.mapping.gender_column
+        if gender_col and gender_col in row:
+            gender_val = row[gender_col].strip().lower()
+            if gender_val in ("male", "female"):
+                event["gender"] = gender_val
+
         return event
 
     def validate_csv_structure(self, csv_content: str) -> List[str]:
