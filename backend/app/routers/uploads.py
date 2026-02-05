@@ -76,62 +76,73 @@ async def upload_csv(
 
     # Store events in database
     processed_count = 0
+    athlete_cache: dict[str, str] = {}  # name -> id cache
+
+    # If athlete_id provided, verify once upfront
+    if athlete_id:
+        athlete_check = (
+            client.table("athletes")
+            .select("id")
+            .eq("id", str(athlete_id))
+            .eq("coach_id", str(current_user))
+            .execute()
+        )
+        if not athlete_check.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Athlete not found",
+            )
 
     for event in events:
         try:
-            # If athlete_id was provided, use it
+            resolved_athlete_id = None
+
             if athlete_id:
-                # Verify athlete belongs to coach
-                athlete_check = (
-                    client.table("athletes")
-                    .select("id")
-                    .eq("id", str(athlete_id))
-                    .eq("coach_id", str(current_user))
-                    .execute()
-                )
-                if not athlete_check.data:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Athlete not found",
+                resolved_athlete_id = str(athlete_id)
+
+            elif "athlete_name" in event:
+                athlete_name = event["athlete_name"]
+
+                if athlete_name in athlete_cache:
+                    resolved_athlete_id = athlete_cache[athlete_name]
+                else:
+                    # Look up athlete by name for this coach
+                    athlete_result = (
+                        client.table("athletes")
+                        .select("id")
+                        .eq("coach_id", str(current_user))
+                        .eq("name", athlete_name)
+                        .execute()
                     )
 
-                # Insert event
+                    if athlete_result.data:
+                        resolved_athlete_id = athlete_result.data[0]["id"]
+                    else:
+                        # Auto-create athlete
+                        new_athlete = (
+                            client.table("athletes")
+                            .insert({"name": athlete_name, "coach_id": str(current_user)})
+                            .execute()
+                        )
+                        resolved_athlete_id = new_athlete.data[0]["id"]
+
+                    athlete_cache[athlete_name] = resolved_athlete_id
+
+            if resolved_athlete_id:
                 event_data = {
-                    "athlete_id": str(athlete_id),
+                    "athlete_id": resolved_athlete_id,
                     "event_date": event["event_date"],
                     "metrics": event["metrics"],
                 }
                 client.table("performance_events").insert(event_data).execute()
                 processed_count += 1
-
-            elif "athlete_name" in event:
-                # Look up athlete by name for this coach
-                athlete_name = event["athlete_name"]
-                athlete_result = (
-                    client.table("athletes")
-                    .select("id")
-                    .eq("coach_id", str(current_user))
-                    .eq("name", athlete_name)
-                    .execute()
-                )
-
-                if athlete_result.data:
-                    event_data = {
-                        "athlete_id": athlete_result.data[0]["id"],
-                        "event_date": event["event_date"],
-                        "metrics": event["metrics"],
-                    }
-                    client.table("performance_events").insert(event_data).execute()
-                    processed_count += 1
-                else:
-                    # Athlete not found - add to errors
-                    errors.append({
-                        "row": 0,  # Unknown row at this point
-                        "reason": f"Athlete not found: {athlete_name}",
-                    })
+            else:
+                errors.append({
+                    "row": 0,
+                    "reason": "No athlete ID or name for event",
+                })
 
         except Exception as e:
-            # Log error but continue processing
             errors.append({
                 "row": 0,
                 "reason": f"Database error: {str(e)}",

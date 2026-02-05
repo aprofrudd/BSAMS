@@ -149,8 +149,8 @@ class TestUploadCSV:
 
         assert response.status_code == 503
 
-    def test_upload_athlete_not_found_adds_errors(self, sample_csv_content):
-        """Should add errors when athlete_id not found (batch processing continues)."""
+    def test_upload_athlete_not_found_returns_404(self, sample_csv_content):
+        """Should return 404 when athlete_id not found."""
         with patch("app.routers.uploads.get_supabase_client") as mock:
             mock_client = MagicMock()
             mock.return_value = mock_client
@@ -165,12 +165,8 @@ class TestUploadCSV:
                 files={"file": ("test.csv", sample_csv_content, "text/csv")},
             )
 
-        # Batch processing returns 201 but with errors
-        assert response.status_code == 201
-        data = response.json()
-        assert data["processed"] == 0
-        assert len(data["errors"]) > 0
-        assert any("Athlete not found" in e["reason"] for e in data["errors"])
+        assert response.status_code == 404
+        assert "Athlete not found" in response.json()["detail"]
 
 
 class TestPreviewCSV:
