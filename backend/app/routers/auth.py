@@ -45,6 +45,23 @@ def _clear_auth_cookie(response: Response) -> None:
     )
 
 
+def _ensure_profile_exists(client, user_id: str, email: str) -> None:
+    """Create a profiles row if one doesn't already exist."""
+    try:
+        existing = (
+            client.table("profiles")
+            .select("id")
+            .eq("id", user_id)
+            .execute()
+        )
+        if not existing.data:
+            client.table("profiles").insert(
+                {"id": user_id, "email": email, "role": "coach"}
+            ).execute()
+    except Exception:
+        pass  # Non-fatal — profile may already exist via DB trigger
+
+
 @router.post("/signup", response_model=AuthResponse)
 @limiter.limit("5/minute")
 async def signup(request: Request, body: AuthRequest, response: Response):
@@ -71,6 +88,9 @@ async def signup(request: Request, body: AuthRequest, response: Response):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Signup failed. Check if email confirmation is required.",
         )
+
+    # Ensure profile row exists (fallback if DB trigger didn't fire)
+    _ensure_profile_exists(client, str(result.user.id), result.user.email)
 
     _set_auth_cookie(response, result.session.access_token)
 
@@ -101,6 +121,9 @@ async def login(request: Request, body: AuthRequest, response: Response):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
+
+    # Ensure profile row exists (fallback for users created before trigger)
+    _ensure_profile_exists(client, str(result.user.id), result.user.email)
 
     _set_auth_cookie(response, result.session.access_token)
 
