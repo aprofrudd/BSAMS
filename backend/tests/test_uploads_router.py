@@ -66,18 +66,19 @@ class TestUploadCSV:
         assert data["athlete_id"] == athlete_id
 
     def test_upload_csv_with_athlete_names(self, mock_supabase, sample_csv_content):
-        """Should match athletes by name from CSV."""
+        """Should match athletes by name from CSV (case-insensitive)."""
         athlete_id = str(uuid4())
 
         def table_side_effect(table_name):
             mock_table = MagicMock()
             if table_name == "athletes":
-                # Athlete lookup by name
-                mock_table.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = [
+                # Athlete lookup: .eq(coach_id).ilike(name)
+                mock_table.select.return_value.eq.return_value.ilike.return_value.execute.return_value.data = [
                     {"id": athlete_id}
                 ]
             else:
-                # Event insert
+                # Event insert / dedup check
+                mock_table.select.return_value.eq.return_value.execute.return_value.data = []
                 mock_table.insert.return_value.execute.return_value.data = [
                     {"id": str(uuid4())}
                 ]
@@ -92,7 +93,40 @@ class TestUploadCSV:
 
         assert response.status_code == 201
         data = response.json()
-        assert data["processed"] >= 0  # May process or may have athlete not found errors
+        assert data["processed"] == 2
+
+    def test_upload_csv_case_insensitive_athlete_match(self, mock_supabase):
+        """Should match existing athlete regardless of case in CSV."""
+        athlete_id = str(uuid4())
+        csv_content = """Test Date,Athlete,CMJ Height (cm)
+15/01/2024,JOHN DOE,45.2
+16/01/2024,john doe,46.1"""
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "athletes":
+                # ilike lookup finds existing athlete
+                mock_table.select.return_value.eq.return_value.ilike.return_value.execute.return_value.data = [
+                    {"id": athlete_id}
+                ]
+            else:
+                mock_table.select.return_value.eq.return_value.execute.return_value.data = []
+                mock_table.insert.return_value.execute.return_value.data = [
+                    {"id": str(uuid4())}
+                ]
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
+
+        response = client.post(
+            "/api/v1/uploads/csv",
+            files={"file": ("test.csv", csv_content, "text/csv")},
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        # Both rows should resolve to the same athlete (no duplicate created)
+        assert data["processed"] == 2
 
     def test_upload_non_csv_file_rejected(self):
         """Should reject non-CSV files."""

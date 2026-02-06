@@ -94,7 +94,7 @@ async def upload_csv(
             detail="Database not configured",
         )
 
-    # Pre-scan events to collect gender per athlete name
+    # Pre-scan events to collect gender per athlete name (keyed by raw name for lookup)
     athlete_gender: dict[str, str] = {}
     for event in events:
         name = event.get("athlete_name")
@@ -131,17 +131,20 @@ async def upload_csv(
                 resolved_athlete_id = str(athlete_id)
 
             elif "athlete_name" in event:
-                athlete_name = event["athlete_name"]
+                # Normalize: collapse whitespace, title case
+                raw_name = event["athlete_name"]
+                athlete_name = " ".join(raw_name.split()).title()
+                cache_key = athlete_name.lower()
 
-                if athlete_name in athlete_cache:
-                    resolved_athlete_id = athlete_cache[athlete_name]
+                if cache_key in athlete_cache:
+                    resolved_athlete_id = athlete_cache[cache_key]
                 else:
-                    # Look up athlete by name for this coach
+                    # Case-insensitive lookup by name for this coach
                     athlete_result = (
                         client.table("athletes")
                         .select("id")
                         .eq("coach_id", str(current_user))
-                        .eq("name", athlete_name)
+                        .ilike("name", athlete_name)
                         .execute()
                     )
 
@@ -149,7 +152,7 @@ async def upload_csv(
                         resolved_athlete_id = athlete_result.data[0]["id"]
                     else:
                         # Auto-create athlete with gender
-                        gender = athlete_gender.get(athlete_name, "male")
+                        gender = athlete_gender.get(raw_name, "male")
                         new_athlete = (
                             client.table("athletes")
                             .insert({
@@ -161,7 +164,7 @@ async def upload_csv(
                         )
                         resolved_athlete_id = new_athlete.data[0]["id"]
 
-                    athlete_cache[athlete_name] = resolved_athlete_id
+                    athlete_cache[cache_key] = resolved_athlete_id
 
             if resolved_athlete_id:
                 batch_list.append({
