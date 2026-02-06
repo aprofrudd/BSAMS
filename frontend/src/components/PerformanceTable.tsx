@@ -116,7 +116,7 @@ export function PerformanceTable({
       onClick={() => setShowAddModal(true)}
       className="px-3 py-1.5 rounded-lg text-sm font-medium bg-accent text-[#090A3D] hover:bg-accent/80 transition-colors"
     >
-      + Add Event
+      + Add Data
     </button>
   );
 
@@ -158,7 +158,7 @@ export function PerformanceTable({
 
   return (
     <div className="-mx-4 sm:mx-0">
-      {/* Column toggles + Add Event */}
+      {/* Column toggles + Add Data */}
       <div className="flex flex-wrap items-center gap-2 px-3 sm:px-0 mb-3">
         {TOGGLE_COLUMNS.map(({ key, label: colLabel }) => (
           <button

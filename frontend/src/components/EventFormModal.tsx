@@ -15,8 +15,6 @@ const METRIC_FIELDS: { key: string; label: string; max: number }[] = [
   { key: 'body_mass_kg', label: 'Body Mass (kg)', max: 300 },
   { key: 'height_cm', label: 'CMJ Height (cm)', max: 500 },
   { key: 'sj_height_cm', label: 'SJ Height (cm)', max: 500 },
-  { key: 'eur_cm', label: 'EUR (cm)', max: 500 },
-  { key: 'rsi', label: 'RSI', max: 500 },
   { key: 'flight_time_ms', label: 'Flight Time (ms)', max: 500 },
   { key: 'contraction_time_ms', label: 'Contact Time (ms)', max: 500 },
 ];
@@ -96,6 +94,16 @@ export function EventFormModal({
         }
       }
 
+      // Auto-calculate EUR = CMJ - SJ
+      if (metrics.height_cm != null && metrics.sj_height_cm != null) {
+        metrics.eur_cm = Number((Number(metrics.height_cm) - Number(metrics.sj_height_cm)).toFixed(2));
+      }
+
+      // Auto-calculate RSI = Flight Time / Contact Time
+      if (metrics.flight_time_ms != null && metrics.contraction_time_ms != null && Number(metrics.contraction_time_ms) !== 0) {
+        metrics.rsi = Number((Number(metrics.flight_time_ms) / Number(metrics.contraction_time_ms)).toFixed(2));
+      }
+
       if (isEdit && existingEvent) {
         await eventsApi.update(existingEvent.id, {
           ...(eventDate ? { event_date: eventDate } : {}),
@@ -126,7 +134,7 @@ export function EventFormModal({
     >
       <div className="card w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-semibold text-accent mb-4">
-          {isEdit ? 'Edit Event' : 'Add Event'}
+          {isEdit ? 'Edit Data' : 'Add Data'}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-3">
