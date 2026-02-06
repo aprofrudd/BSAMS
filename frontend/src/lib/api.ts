@@ -68,7 +68,7 @@ export const authApi = {
 
 // Athletes API
 export const athletesApi = {
-  list: () => fetchApi<Athlete[]>('/athletes/'),
+  list: () => fetchApi<Athlete[]>('/athletes/?limit=200'),
 
   get: (id: string) => fetchApi<Athlete>(`/athletes/${id}`),
 
