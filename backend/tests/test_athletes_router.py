@@ -234,3 +234,63 @@ class TestDeleteAthlete:
         response = client.delete(f"/api/v1/athletes/{uuid4()}")
 
         assert response.status_code == 404
+
+
+class TestDeleteAllData:
+    """Test DELETE /api/v1/athletes/"""
+
+    def test_delete_all_data_success(self, mock_supabase):
+        """Should delete all athletes and events for the coach."""
+        athlete_id_1 = str(uuid4())
+        athlete_id_2 = str(uuid4())
+
+        call_count = {"n": 0}
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "athletes":
+                if call_count["n"] == 0:
+                    # First call: select athlete IDs
+                    mock_table.select.return_value.eq.return_value.execute.return_value.data = [
+                        {"id": athlete_id_1},
+                        {"id": athlete_id_2},
+                    ]
+                    call_count["n"] += 1
+                else:
+                    # Later call: delete athletes
+                    mock_table.delete.return_value.eq.return_value.execute.return_value = None
+            elif table_name == "performance_events":
+                # Events for each athlete
+                mock_table.select.return_value.eq.return_value.execute.return_value.data = [
+                    {"id": str(uuid4())},
+                    {"id": str(uuid4())},
+                ]
+                mock_table.delete.return_value.eq.return_value.execute.return_value = None
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
+
+        response = client.delete("/api/v1/athletes/")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["deleted_athletes"] == 2
+        assert data["deleted_events"] == 4  # 2 events per athlete
+
+    def test_delete_all_data_empty(self, mock_supabase):
+        """Should return zeros when no data exists."""
+        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = []
+
+        response = client.delete("/api/v1/athletes/")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["deleted_athletes"] == 0
+        assert data["deleted_events"] == 0
+
+    def test_delete_all_data_no_database(self):
+        """Should return 503 when database not configured."""
+        with patch("app.routers.athletes.get_supabase_client", return_value=None):
+            response = client.delete("/api/v1/athletes/")
+
+        assert response.status_code == 503

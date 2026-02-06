@@ -9,6 +9,7 @@ import { Spinner } from '@/components/Spinner';
 import type { Athlete, UploadResult } from '@/lib/types';
 
 type UploadStep = 'select' | 'preview' | 'uploading' | 'results';
+type ClearState = 'idle' | 'confirming' | 'clearing';
 
 interface PreviewData {
   warnings: string[];
@@ -34,6 +35,8 @@ export default function UploadPage() {
   const [error, setError] = useState<string | null>(null);
   const [loadingAthletes, setLoadingAthletes] = useState(true);
   const [dragging, setDragging] = useState(false);
+  const [clearState, setClearState] = useState<ClearState>('idle');
+  const [clearResult, setClearResult] = useState<{ deleted_athletes: number; deleted_events: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auth guard
@@ -99,6 +102,23 @@ export default function UploadPage() {
     setError(null);
     setSelectedAthleteId('');
     if (fileInputRef.current) fileInputRef.current.value = '';
+  }, []);
+
+  const handleClearAll = useCallback(async () => {
+    setClearState('clearing');
+    setClearResult(null);
+    try {
+      const result = await athletesApi.deleteAll();
+      setClearResult(result);
+      // Refresh athletes list
+      const data = await athletesApi.list();
+      setAthletes(data);
+      setSelectedAthleteId('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to clear data');
+    } finally {
+      setClearState('idle');
+    }
   }, []);
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -319,6 +339,53 @@ export default function UploadPage() {
           </div>
         </div>
       )}
+
+      {/* Clear All Data */}
+      <div className="card mt-8 border border-red-500/20">
+        <h2 className="text-lg font-semibold text-white mb-2">Clear All Data</h2>
+        <p className="text-white/60 text-sm mb-4">
+          Remove all athletes and performance events. This cannot be undone.
+        </p>
+
+        {clearResult && (
+          <div className="bg-green-500/10 border border-green-500/50 rounded-lg p-3 mb-4">
+            <p className="text-green-400 text-sm">
+              Cleared {clearResult.deleted_athletes} athlete(s) and{' '}
+              {clearResult.deleted_events} event(s).
+            </p>
+          </div>
+        )}
+
+        {clearState === 'confirming' ? (
+          <div className="flex items-center gap-3">
+            <p className="text-red-400 text-sm">Are you sure?</p>
+            <button
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition-colors"
+              onClick={handleClearAll}
+            >
+              Yes, delete everything
+            </button>
+            <button
+              className="btn-secondary text-sm"
+              onClick={() => setClearState('idle')}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : clearState === 'clearing' ? (
+          <Spinner message="Clearing data..." />
+        ) : (
+          <button
+            className="px-4 py-2 border border-red-500/50 text-red-400 hover:bg-red-500/10 text-sm rounded-lg transition-colors"
+            onClick={() => {
+              setClearResult(null);
+              setClearState('confirming');
+            }}
+          >
+            Clear All Data
+          </button>
+        )}
+      </div>
     </div>
   );
 }

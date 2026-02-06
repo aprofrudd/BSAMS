@@ -208,3 +208,55 @@ async def delete_athlete(
     ).execute()
 
     return None
+
+
+@router.delete("/", status_code=status.HTTP_200_OK)
+async def delete_all_data(
+    current_user: UUID = Depends(get_current_user),
+):
+    """
+    Delete all athletes and their events for the current coach.
+
+    This is a destructive operation intended for MVP/testing.
+    Events are cascade-deleted via foreign key when athletes are removed.
+    """
+    client = get_supabase_client()
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database not configured",
+        )
+
+    # Get all athlete IDs for this coach
+    athletes = (
+        client.table("athletes")
+        .select("id")
+        .eq("coach_id", str(current_user))
+        .execute()
+    )
+
+    if not athletes.data:
+        return {"deleted_athletes": 0, "deleted_events": 0}
+
+    athlete_ids = [a["id"] for a in athletes.data]
+
+    # Delete all events for these athletes first
+    events_deleted = 0
+    for aid in athlete_ids:
+        events = (
+            client.table("performance_events")
+            .select("id")
+            .eq("athlete_id", aid)
+            .execute()
+        )
+        events_deleted += len(events.data)
+        if events.data:
+            client.table("performance_events").delete().eq("athlete_id", aid).execute()
+
+    # Delete all athletes for this coach
+    client.table("athletes").delete().eq("coach_id", str(current_user)).execute()
+
+    return {
+        "deleted_athletes": len(athlete_ids),
+        "deleted_events": events_deleted,
+    }

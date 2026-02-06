@@ -23,3 +23,14 @@ app.dependency_overrides[get_current_user] = override_get_current_user
 def test_user_id() -> UUID:
     """Return the test user UUID for assertions."""
     return TEST_USER_ID
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiters():
+    """Reset rate limiter storage between tests to prevent cross-test 429s."""
+    yield
+    from app.routers.uploads import limiter as uploads_limiter
+    from app.routers.auth import limiter as auth_limiter
+
+    uploads_limiter.reset()
+    auth_limiter.reset()

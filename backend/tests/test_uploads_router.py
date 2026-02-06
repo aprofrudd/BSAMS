@@ -169,6 +169,93 @@ class TestUploadCSV:
         assert "Athlete not found" in response.json()["detail"]
 
 
+class TestUploadCSVDeduplication:
+    """Test duplicate detection in CSV upload."""
+
+    def test_upload_csv_skips_duplicates(self):
+        """Should skip events that already exist (same athlete + date)."""
+        athlete_id = str(uuid4())
+        csv_content = """Test Date,CMJ Height (cm)
+15/01/2024,45.2
+16/01/2024,46.1"""
+
+        with patch("app.routers.uploads.get_supabase_client") as mock:
+            mock_client = MagicMock()
+            mock.return_value = mock_client
+
+            call_count = {"n": 0}
+
+            def table_side_effect(table_name):
+                mock_table = MagicMock()
+                if table_name == "athletes":
+                    # Athlete verification
+                    mock_table.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = [
+                        {"id": athlete_id}
+                    ]
+                elif table_name == "performance_events":
+                    if call_count["n"] == 0:
+                        # Dedup check: one date already exists
+                        mock_table.select.return_value.eq.return_value.execute.return_value.data = [
+                            {"athlete_id": athlete_id, "event_date": "2024-01-15"},
+                        ]
+                        call_count["n"] += 1
+                    else:
+                        # Insert new events
+                        mock_table.insert.return_value.execute.return_value.data = [
+                            {"id": str(uuid4())}
+                        ]
+                return mock_table
+
+            mock_client.table.side_effect = table_side_effect
+
+            response = client.post(
+                f"/api/v1/uploads/csv?athlete_id={athlete_id}",
+                files={"file": ("test.csv", csv_content, "text/csv")},
+            )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["processed"] == 1  # Only the non-duplicate
+        # Should have a skip message in errors
+        skip_errors = [e for e in data["errors"] if "duplicate" in e["reason"].lower()]
+        assert len(skip_errors) == 1
+        assert "1" in skip_errors[0]["reason"]
+
+    def test_upload_csv_all_duplicates(self):
+        """Should handle case where all events are duplicates."""
+        athlete_id = str(uuid4())
+        csv_content = """Test Date,CMJ Height (cm)
+15/01/2024,45.2"""
+
+        with patch("app.routers.uploads.get_supabase_client") as mock:
+            mock_client = MagicMock()
+            mock.return_value = mock_client
+
+            def table_side_effect(table_name):
+                mock_table = MagicMock()
+                if table_name == "athletes":
+                    mock_table.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = [
+                        {"id": athlete_id}
+                    ]
+                elif table_name == "performance_events":
+                    # All dates already exist
+                    mock_table.select.return_value.eq.return_value.execute.return_value.data = [
+                        {"athlete_id": athlete_id, "event_date": "2024-01-15"},
+                    ]
+                return mock_table
+
+            mock_client.table.side_effect = table_side_effect
+
+            response = client.post(
+                f"/api/v1/uploads/csv?athlete_id={athlete_id}",
+                files={"file": ("test.csv", csv_content, "text/csv")},
+            )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["processed"] == 0  # All skipped
+
+
 class TestPreviewCSV:
     """Test POST /api/v1/uploads/csv/preview"""
 

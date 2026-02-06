@@ -80,6 +80,11 @@ export const athletesApi = {
 
   delete: (id: string) =>
     fetchApi<void>(`/athletes/${id}`, { method: 'DELETE' }),
+
+  deleteAll: () =>
+    fetchApi<{ deleted_athletes: number; deleted_events: number }>('/athletes/', {
+      method: 'DELETE',
+    }),
 };
 
 // Events API

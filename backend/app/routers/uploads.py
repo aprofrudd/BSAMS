@@ -181,6 +181,39 @@ async def upload_csv(
                 "reason": f"Error resolving athlete: {str(e)}",
             })
 
+    # Deduplicate: check for existing events with same athlete_id + event_date
+    if batch_list:
+        # Group by athlete_id to batch the existence checks
+        athlete_ids_in_batch = list({e["athlete_id"] for e in batch_list})
+        existing_keys: set[tuple[str, str]] = set()
+
+        for aid in athlete_ids_in_batch:
+            existing = (
+                client.table("performance_events")
+                .select("athlete_id, event_date")
+                .eq("athlete_id", aid)
+                .execute()
+            )
+            for row in existing.data:
+                existing_keys.add((row["athlete_id"], row["event_date"]))
+
+        new_events = []
+        skipped = 0
+        for event_data in batch_list:
+            key = (event_data["athlete_id"], event_data["event_date"])
+            if key in existing_keys:
+                skipped += 1
+            else:
+                new_events.append(event_data)
+
+        if skipped > 0:
+            errors.append({
+                "row": 0,
+                "reason": f"Skipped {skipped} duplicate(s) (same athlete + date already exists)",
+            })
+
+        batch_list = new_events
+
     # Batch insert all events at once
     if batch_list:
         try:
