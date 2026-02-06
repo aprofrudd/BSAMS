@@ -236,6 +236,86 @@ class TestDeleteAthlete:
         assert response.status_code == 404
 
 
+class TestMergeAthletes:
+    """Test POST /api/v1/athletes/merge"""
+
+    def test_merge_athletes_success(self, mock_supabase):
+        """Should reassign events and delete the duplicate athlete."""
+        keep_id = str(uuid4())
+        merge_id = str(uuid4())
+
+        call_count = {"n": 0}
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "athletes":
+                # Both athlete existence checks return data
+                mock_table.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = [
+                    {"id": keep_id}
+                ]
+                mock_table.delete.return_value.eq.return_value.eq.return_value.execute.return_value = (
+                    None
+                )
+            elif table_name == "performance_events":
+                if call_count["n"] == 0:
+                    # First call: count events for merge_id
+                    mock_table.select.return_value.eq.return_value.execute.return_value.data = [
+                        {"id": str(uuid4())},
+                        {"id": str(uuid4())},
+                        {"id": str(uuid4())},
+                    ]
+                    call_count["n"] += 1
+                else:
+                    # Second call: update events
+                    mock_table.update.return_value.eq.return_value.execute.return_value = (
+                        None
+                    )
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
+
+        response = client.post(
+            "/api/v1/athletes/merge",
+            json={"keep_id": keep_id, "merge_id": merge_id},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["kept_athlete_id"] == keep_id
+        assert data["merged_events"] == 3
+        assert data["deleted_athlete_id"] == merge_id
+
+    def test_merge_same_athlete_rejected(self, mock_supabase):
+        """Should return 400 when keep_id equals merge_id."""
+        same_id = str(uuid4())
+
+        response = client.post(
+            "/api/v1/athletes/merge",
+            json={"keep_id": same_id, "merge_id": same_id},
+        )
+
+        assert response.status_code == 400
+        assert "must be different" in response.json()["detail"]
+
+    def test_merge_nonexistent_athlete(self, mock_supabase):
+        """Should return 404 when an athlete is not found."""
+        keep_id = str(uuid4())
+        merge_id = str(uuid4())
+
+        # First athlete lookup returns empty (not found)
+        mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = (
+            []
+        )
+
+        response = client.post(
+            "/api/v1/athletes/merge",
+            json={"keep_id": keep_id, "merge_id": merge_id},
+        )
+
+        assert response.status_code == 404
+        assert "Athlete not found" in response.json()["detail"]
+
+
 class TestDeleteAllData:
     """Test DELETE /api/v1/athletes/"""
 

@@ -85,6 +85,12 @@ export const athletesApi = {
     fetchApi<{ deleted_athletes: number; deleted_events: number }>('/athletes/', {
       method: 'DELETE',
     }),
+
+  merge: (keepId: string, mergeId: string) =>
+    fetchApi<{ kept_athlete_id: string; merged_events: number; deleted_athlete_id: string }>(
+      '/athletes/merge',
+      { method: 'POST', body: JSON.stringify({ keep_id: keepId, merge_id: mergeId }) }
+    ),
 };
 
 // Events API

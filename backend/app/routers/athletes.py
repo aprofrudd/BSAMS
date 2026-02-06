@@ -4,10 +4,16 @@ from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 
 from app.core.security import get_current_user
 from app.core.supabase_client import get_supabase_client
 from app.schemas.athlete import AthleteCreate, AthleteResponse, AthleteUpdate
+
+
+class MergeRequest(BaseModel):
+    keep_id: UUID
+    merge_id: UUID
 
 router = APIRouter(prefix="/athletes", tags=["athletes"])
 
@@ -208,6 +214,80 @@ async def delete_athlete(
     ).execute()
 
     return None
+
+
+@router.post("/merge", status_code=status.HTTP_200_OK)
+async def merge_athletes(
+    body: MergeRequest,
+    current_user: UUID = Depends(get_current_user),
+):
+    """
+    Merge two athletes by reassigning events from merge_id to keep_id,
+    then deleting the merge_id athlete.
+    """
+    if body.keep_id == body.merge_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="keep_id and merge_id must be different",
+        )
+
+    client = get_supabase_client()
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database not configured",
+        )
+
+    # Verify both athletes exist and belong to the current coach
+    for athlete_id, label in [
+        (body.keep_id, "keep_id"),
+        (body.merge_id, "merge_id"),
+    ]:
+        result = (
+            client.table("athletes")
+            .select("id")
+            .eq("id", str(athlete_id))
+            .eq("coach_id", str(current_user))
+            .execute()
+        )
+        if not result.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Athlete not found for {label}",
+            )
+
+    # Count events to reassign
+    events = (
+        client.table("performance_events")
+        .select("id")
+        .eq("athlete_id", str(body.merge_id))
+        .execute()
+    )
+    merged_events = len(events.data)
+
+    # Reassign events from merge_id to keep_id
+    if merged_events > 0:
+        (
+            client.table("performance_events")
+            .update({"athlete_id": str(body.keep_id)})
+            .eq("athlete_id", str(body.merge_id))
+            .execute()
+        )
+
+    # Delete the duplicate athlete
+    (
+        client.table("athletes")
+        .delete()
+        .eq("id", str(body.merge_id))
+        .eq("coach_id", str(current_user))
+        .execute()
+    )
+
+    return {
+        "kept_athlete_id": str(body.keep_id),
+        "merged_events": merged_events,
+        "deleted_athlete_id": str(body.merge_id),
+    }
 
 
 @router.delete("/", status_code=status.HTTP_200_OK)
