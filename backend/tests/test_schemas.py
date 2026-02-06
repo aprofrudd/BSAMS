@@ -112,7 +112,7 @@ class TestPerformanceEventCreate:
         event = PerformanceEventCreate(
             athlete_id=uuid4(),
             event_date=date(2024, 1, 15),
-            metrics={"test_type": "CMJ", "height_cm": 45.5, "mass_kg": 75.0},
+            metrics={"test_type": "CMJ", "height_cm": 45.5, "body_mass_kg": 75.0},
         )
         assert event.event_date == date(2024, 1, 15)
         assert event.metrics["test_type"] == "CMJ"
@@ -127,19 +127,25 @@ class TestPerformanceEventCreate:
         )
         assert event.metrics == {}
 
-    def test_nested_metrics(self):
-        """Should accept nested metrics data."""
+    def test_all_metrics_accepted(self):
+        """Should accept all valid metric keys."""
         event = PerformanceEventCreate(
             athlete_id=uuid4(),
             event_date=date(2024, 1, 15),
             metrics={
                 "test_type": "CMJ",
-                "measurements": {"height_cm": 45.5, "flight_time_ms": 500},
-                "tags": ["pre-season", "baseline"],
+                "height_cm": 45.5,
+                "sj_height_cm": 35.0,
+                "eur_cm": 10.5,
+                "rsi": 2.21,
+                "flight_time_ms": 450.0,
+                "contraction_time_ms": 200.0,
+                "body_mass_kg": 72.0,
             },
         )
-        assert event.metrics["measurements"]["height_cm"] == 45.5
-        assert "pre-season" in event.metrics["tags"]
+        assert len(event.metrics) == 8
+        assert event.metrics["height_cm"] == 45.5
+        assert event.metrics["rsi"] == 2.21
 
 
 class TestPerformanceEventUpdate:

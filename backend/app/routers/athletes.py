@@ -19,7 +19,7 @@ router = APIRouter(prefix="/athletes", tags=["athletes"])
 
 
 @router.get("/", response_model=List[AthleteResponse])
-async def list_athletes(
+def list_athletes(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(50, ge=1, le=200, description="Maximum records to return"),
     current_user: AuthenticatedUser = Depends(get_current_user),
@@ -48,7 +48,7 @@ async def list_athletes(
 
 
 @router.get("/{athlete_id}", response_model=AthleteResponse)
-async def get_athlete(
+def get_athlete(
     athlete_id: UUID,
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
@@ -82,7 +82,7 @@ async def get_athlete(
 
 
 @router.post("/", response_model=AthleteResponse, status_code=status.HTTP_201_CREATED)
-async def create_athlete(
+def create_athlete(
     athlete: AthleteCreate,
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
@@ -118,7 +118,7 @@ async def create_athlete(
 
 
 @router.patch("/{athlete_id}", response_model=AthleteResponse)
-async def update_athlete(
+def update_athlete(
     athlete_id: UUID,
     athlete: AthleteUpdate,
     current_user: AuthenticatedUser = Depends(get_current_user),
@@ -178,7 +178,7 @@ async def update_athlete(
 
 
 @router.delete("/{athlete_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_athlete(
+def delete_athlete(
     athlete_id: UUID,
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
@@ -217,7 +217,7 @@ async def delete_athlete(
 
 
 @router.post("/merge", status_code=status.HTTP_200_OK)
-async def merge_athletes(
+def merge_athletes(
     body: MergeRequest,
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
@@ -291,7 +291,7 @@ async def merge_athletes(
 
 
 @router.delete("/", status_code=status.HTTP_200_OK)
-async def delete_all_data(
+def delete_all_data(
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """

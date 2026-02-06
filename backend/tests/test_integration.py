@@ -1,7 +1,7 @@
 """Integration tests for BSAMS API."""
 
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, PropertyMock
 from uuid import uuid4
 
 import pytest
@@ -16,8 +16,12 @@ class TestHealthEndpoint:
     """Test health check endpoint."""
 
     def test_health_returns_healthy(self):
-        """Health endpoint should return healthy status."""
-        response = client.get("/health")
+        """Health endpoint should return healthy status when DB reachable."""
+        mock_client = MagicMock()
+        mock_client.table.return_value.select.return_value.limit.return_value.execute.return_value.data = []
+
+        with patch("app.main.get_supabase_client", return_value=mock_client):
+            response = client.get("/health")
         assert response.status_code == 200
         assert response.json() == {"status": "healthy"}
 

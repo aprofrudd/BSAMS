@@ -21,7 +21,7 @@ MAX_ROW_COUNT = 10_000
 
 @router.post("/csv", response_model=CSVUploadResult, status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/minute")
-async def upload_csv(
+def upload_csv(
     request: Request,
     file: UploadFile = File(..., description="CSV file to upload"),
     athlete_id: Optional[UUID] = Query(None, description="Athlete ID to associate with all rows"),
@@ -45,7 +45,7 @@ async def upload_csv(
 
     # Read file content with size check
     try:
-        content = await file.read()
+        content = file.file.read()
         if len(content) > MAX_FILE_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -242,7 +242,7 @@ async def upload_csv(
 
 
 @router.post("/csv/preview", status_code=status.HTTP_200_OK)
-async def preview_csv(
+def preview_csv(
     file: UploadFile = File(..., description="CSV file to preview"),
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
@@ -261,7 +261,7 @@ async def preview_csv(
 
     # Read file content with size check
     try:
-        content = await file.read()
+        content = file.file.read()
         if len(content) > MAX_FILE_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

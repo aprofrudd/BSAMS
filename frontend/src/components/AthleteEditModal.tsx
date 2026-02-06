@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { athletesApi } from '@/lib/api';
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
 import type { Athlete } from '@/lib/types';
 
 interface AthleteEditModalProps {
@@ -11,6 +12,7 @@ interface AthleteEditModalProps {
 }
 
 export function AthleteEditModal({ athlete, onClose, onSaved }: AthleteEditModalProps) {
+  const focusTrapRef = useFocusTrap<HTMLDivElement>();
   const [name, setName] = useState(athlete.name);
   const [gender, setGender] = useState<'male' | 'female'>(athlete.gender);
   const [dob, setDob] = useState(athlete.date_of_birth?.slice(0, 10) ?? '');
@@ -57,7 +59,7 @@ export function AthleteEditModal({ athlete, onClose, onSaved }: AthleteEditModal
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="card w-full max-w-sm mx-4">
+      <div ref={focusTrapRef} className="card w-full max-w-sm mx-4" role="dialog" aria-modal="true">
         <h2 className="text-lg font-semibold text-accent mb-4">Edit Athlete</h2>
 
         <form onSubmit={handleSubmit} className="space-y-3">

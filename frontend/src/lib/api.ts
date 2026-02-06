@@ -14,6 +14,19 @@ import type {
 
 const API_BASE = '/api/v1';
 
+// Auth error event system for 401 interceptor
+type AuthErrorListener = () => void;
+const authErrorListeners: Set<AuthErrorListener> = new Set();
+
+export function onAuthError(listener: AuthErrorListener): () => void {
+  authErrorListeners.add(listener);
+  return () => { authErrorListeners.delete(listener); };
+}
+
+function notifyAuthError() {
+  authErrorListeners.forEach((listener) => listener());
+}
+
 class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -35,6 +48,10 @@ async function fetchApi<T>(
   });
 
   if (!response.ok) {
+    // Global 401 interceptor: expired session -> redirect to login
+    if (response.status === 401 && !endpoint.startsWith('/auth/')) {
+      notifyAuthError();
+    }
     const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
     throw new ApiError(response.status, error.detail || 'Request failed');
   }
@@ -44,7 +61,6 @@ async function fetchApi<T>(
 
 // Auth API
 export interface AuthResponse {
-  access_token: string;
   user_id: string;
   email: string;
 }

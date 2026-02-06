@@ -59,7 +59,7 @@ class ZScoreResponse(BaseModel):
 
 
 @router.get("/benchmarks", response_model=BenchmarkResponse)
-async def get_benchmarks(
+def get_benchmarks(
     metric: str = Query(..., description="Metric key to analyze (e.g., 'height_cm')"),
     reference_group: ReferenceGroup = Query(
         ReferenceGroup.COHORT, description="Reference group for comparison"
@@ -193,7 +193,7 @@ async def get_benchmarks(
 
 
 @router.get("/athlete/{athlete_id}/zscore", response_model=ZScoreResponse)
-async def get_athlete_zscore(
+def get_athlete_zscore(
     athlete_id: UUID,
     metric: str = Query(..., description="Metric key to analyze (e.g., 'height_cm')"),
     event_id: Optional[UUID] = Query(None, description="Specific event ID. If not provided, uses latest event."),
@@ -377,7 +377,7 @@ async def get_athlete_zscore(
 
 
 @router.get("/athlete/{athlete_id}/zscores", response_model=Dict[str, ZScoreResponse])
-async def get_athlete_zscores_bulk(
+def get_athlete_zscores_bulk(
     athlete_id: UUID,
     metric: str = Query(..., description="Metric key to analyze (e.g., 'height_cm')"),
     reference_group: ReferenceGroup = Query(
@@ -553,7 +553,7 @@ async def get_athlete_zscores_bulk(
 
 
 @router.get("/athlete/{athlete_id}/metrics", response_model=List[str])
-async def get_athlete_metrics(
+def get_athlete_metrics(
     athlete_id: UUID,
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):

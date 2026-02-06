@@ -122,3 +122,52 @@ class TestUpdateConsent:
             )
 
         assert response.status_code == 503
+
+    def test_revoke_then_regrant_consent(self):
+        """Should be able to revoke and then re-grant consent."""
+        # First: revoke (update existing to false)
+        mock_existing = MagicMock()
+        mock_existing.data = [{"id": "some-id"}]
+
+        mock_revoke_result = MagicMock()
+        mock_revoke_result.data = [{
+            "data_sharing_enabled": False,
+            "consented_at": "2024-01-01T00:00:00Z",
+            "revoked_at": "2024-02-01T00:00:00Z",
+        }]
+
+        mock_client = MagicMock()
+        mock_client.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_existing
+        mock_client.table.return_value.update.return_value.eq.return_value.execute.return_value = mock_revoke_result
+
+        with patch("app.routers.consent.get_supabase_client", return_value=mock_client):
+            response = client.put(
+                "/api/v1/consent/",
+                json={"data_sharing_enabled": False},
+            )
+
+        assert response.status_code == 200
+        assert response.json()["data_sharing_enabled"] is False
+
+        # Second: re-grant (update existing to true)
+        mock_regrant_result = MagicMock()
+        mock_regrant_result.data = [{
+            "data_sharing_enabled": True,
+            "consented_at": "2024-03-01T00:00:00Z",
+            "revoked_at": None,
+        }]
+
+        mock_client2 = MagicMock()
+        mock_client2.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_existing
+        mock_client2.table.return_value.update.return_value.eq.return_value.execute.return_value = mock_regrant_result
+
+        with patch("app.routers.consent.get_supabase_client", return_value=mock_client2):
+            response = client.put(
+                "/api/v1/consent/",
+                json={"data_sharing_enabled": True},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["data_sharing_enabled"] is True
+        assert data["revoked_at"] is None

@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     # API Settings
     api_v1_prefix: str = "/api/v1"
 
+    # Logging
+    log_level: str = "INFO"
+
+    # Environment
+    environment: str = "production"
+
 
 @lru_cache
 def get_settings() -> Settings:

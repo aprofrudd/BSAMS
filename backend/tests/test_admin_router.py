@@ -44,7 +44,8 @@ class TestListSharedAthletes:
             elif name == "profiles":
                 m.select.return_value.eq.return_value.execute.return_value = mock_admin_profiles
             elif name == "athletes":
-                m.select.return_value.eq.return_value.execute.return_value = mock_athletes
+                # N+1 fix: now uses .in_() instead of .eq() per coach
+                m.select.return_value.in_.return_value.execute.return_value = mock_athletes
             return m
 
         mock_client.table.side_effect = table_dispatch

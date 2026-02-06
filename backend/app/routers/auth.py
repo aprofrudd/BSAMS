@@ -92,7 +92,6 @@ async def signup(request: Request, body: AuthRequest, response: Response):
     _set_auth_cookie(response, result.session.access_token)
 
     return AuthResponse(
-        access_token=result.session.access_token,
         user_id=result.user.id,
         email=result.user.email,
     )
@@ -125,7 +124,6 @@ async def login(request: Request, body: AuthRequest, response: Response):
     _set_auth_cookie(response, result.session.access_token)
 
     return AuthResponse(
-        access_token=result.session.access_token,
         user_id=result.user.id,
         email=result.user.email,
     )

@@ -11,8 +11,7 @@ class AuthRequest(BaseModel):
 
 
 class AuthResponse(BaseModel):
-    """Authentication response with token and user info."""
+    """Authentication response with user info (token sent via HttpOnly cookie only)."""
 
-    access_token: str
     user_id: str
     email: str

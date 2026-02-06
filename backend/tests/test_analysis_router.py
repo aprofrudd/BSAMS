@@ -293,3 +293,207 @@ class TestGetAthleteZScore:
             )
 
         assert response.status_code == 503
+
+
+class TestGetAthleteZScoresBulk:
+    """Test GET /api/v1/analysis/athlete/{athlete_id}/zscores"""
+
+    def test_bulk_zscores_returns_dict(self, mock_supabase, sample_athletes, sample_events):
+        """Should return a dict mapping event_id to Z-score response."""
+        athlete_id = sample_athletes[0]["id"]
+        event_ids = [str(uuid4()), str(uuid4())]
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "athletes":
+                mock_table.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = [
+                    sample_athletes[0]
+                ]
+                mock_table.select.return_value.eq.return_value.execute.return_value.data = (
+                    sample_athletes
+                )
+            else:
+                # Athlete events
+                mock_table.select.return_value.eq.return_value.execute.return_value.data = [
+                    {"id": event_ids[0], "metrics": {"height_cm": 45.0, "body_mass_kg": 72.0}},
+                    {"id": event_ids[1], "metrics": {"height_cm": 47.0, "body_mass_kg": 74.0}},
+                ]
+                # Reference events
+                mock_table.select.return_value.in_.return_value.execute.return_value.data = (
+                    sample_events
+                )
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
+
+        response = client.get(
+            f"/api/v1/analysis/athlete/{athlete_id}/zscores",
+            params={"metric": "height_cm", "reference_group": "cohort"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, dict)
+        # Should have entries for both events
+        assert len(data) == 2
+        for event_id in event_ids:
+            assert event_id in data
+            assert "z_score" in data[event_id]
+            assert "mean" in data[event_id]
+            assert "value" in data[event_id]
+
+    def test_bulk_zscores_empty_when_no_events(self, mock_supabase, sample_athletes):
+        """Should return empty dict when athlete has no events."""
+        athlete_id = sample_athletes[0]["id"]
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "athletes":
+                mock_table.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = [
+                    sample_athletes[0]
+                ]
+            else:
+                mock_table.select.return_value.eq.return_value.execute.return_value.data = []
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
+
+        response = client.get(
+            f"/api/v1/analysis/athlete/{athlete_id}/zscores",
+            params={"metric": "height_cm", "reference_group": "cohort"},
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {}
+
+    def test_bulk_zscores_skips_events_without_metric(self, mock_supabase, sample_athletes, sample_events):
+        """Should skip events that don't contain the requested metric."""
+        athlete_id = sample_athletes[0]["id"]
+        event_with_metric = str(uuid4())
+        event_without_metric = str(uuid4())
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "athletes":
+                mock_table.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = [
+                    sample_athletes[0]
+                ]
+                mock_table.select.return_value.eq.return_value.execute.return_value.data = (
+                    sample_athletes
+                )
+            else:
+                mock_table.select.return_value.eq.return_value.execute.return_value.data = [
+                    {"id": event_with_metric, "metrics": {"height_cm": 45.0}},
+                    {"id": event_without_metric, "metrics": {"sj_height_cm": 35.0}},
+                ]
+                mock_table.select.return_value.in_.return_value.execute.return_value.data = (
+                    sample_events
+                )
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
+
+        response = client.get(
+            f"/api/v1/analysis/athlete/{athlete_id}/zscores",
+            params={"metric": "height_cm", "reference_group": "cohort"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert event_with_metric in data
+        assert event_without_metric not in data
+
+    def test_bulk_zscores_athlete_not_found(self, mock_supabase):
+        """Should return 404 when athlete not found."""
+        mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = (
+            []
+        )
+
+        response = client.get(
+            f"/api/v1/analysis/athlete/{uuid4()}/zscores",
+            params={"metric": "height_cm"},
+        )
+
+        assert response.status_code == 404
+
+    def test_bulk_zscores_database_unavailable(self):
+        """Should return 503 when database not configured."""
+        with patch("app.routers.analysis.get_supabase_client", return_value=None):
+            response = client.get(
+                f"/api/v1/analysis/athlete/{uuid4()}/zscores",
+                params={"metric": "height_cm"},
+            )
+
+        assert response.status_code == 503
+
+
+class TestGetAthleteMetrics:
+    """Test GET /api/v1/analysis/athlete/{athlete_id}/metrics"""
+
+    def test_returns_distinct_metric_keys(self, mock_supabase, sample_athletes):
+        """Should return sorted list of distinct metric keys, excluding metadata."""
+        athlete_id = sample_athletes[0]["id"]
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "athletes":
+                mock_table.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = [
+                    sample_athletes[0]
+                ]
+            else:
+                mock_table.select.return_value.eq.return_value.execute.return_value.data = [
+                    {"metrics": {"test_type": "CMJ", "height_cm": 45.0, "body_mass_kg": 72.0}},
+                    {"metrics": {"test_type": "SJ", "sj_height_cm": 35.0, "body_mass_kg": 72.0}},
+                ]
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
+
+        response = client.get(f"/api/v1/analysis/athlete/{athlete_id}/metrics")
+
+        assert response.status_code == 200
+        data = response.json()
+        # Should exclude test_type and body_mass_kg
+        assert "test_type" not in data
+        assert "body_mass_kg" not in data
+        assert "height_cm" in data
+        assert "sj_height_cm" in data
+        assert data == sorted(data)
+
+    def test_returns_empty_when_no_events(self, mock_supabase, sample_athletes):
+        """Should return empty list when athlete has no events."""
+        athlete_id = sample_athletes[0]["id"]
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "athletes":
+                mock_table.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = [
+                    sample_athletes[0]
+                ]
+            else:
+                mock_table.select.return_value.eq.return_value.execute.return_value.data = []
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
+
+        response = client.get(f"/api/v1/analysis/athlete/{athlete_id}/metrics")
+
+        assert response.status_code == 200
+        assert response.json() == []
+
+    def test_returns_404_for_unknown_athlete(self, mock_supabase):
+        """Should return 404 when athlete not found."""
+        mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = (
+            []
+        )
+
+        response = client.get(f"/api/v1/analysis/athlete/{uuid4()}/metrics")
+
+        assert response.status_code == 404
+
+    def test_returns_503_when_db_unavailable(self):
+        """Should return 503 when database not configured."""
+        with patch("app.routers.analysis.get_supabase_client", return_value=None):
+            response = client.get(f"/api/v1/analysis/athlete/{uuid4()}/metrics")
+
+        assert response.status_code == 503

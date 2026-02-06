@@ -8,7 +8,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import { authApi, type AuthResponse } from './api';
+import { authApi, type AuthResponse, onAuthError } from './api';
 
 interface AuthUser {
   user_id: string;
@@ -43,6 +43,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => {
         setLoading(false);
       });
+  }, []);
+
+  // Listen for 401 errors from API layer to auto-logout
+  useEffect(() => {
+    const unsubscribe = onAuthError(() => {
+      setUser(null);
+    });
+    return unsubscribe;
   }, []);
 
   const handleAuthResponse = useCallback((response: AuthResponse) => {

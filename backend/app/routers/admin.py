@@ -3,13 +3,16 @@
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.core.security import AuthenticatedUser, get_current_user
 from app.core.supabase_client import get_supabase_client
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 class AnonymisedAthlete(BaseModel):
@@ -40,7 +43,9 @@ def _require_admin(current_user: AuthenticatedUser) -> None:
 
 
 @router.get("/shared-athletes", response_model=List[AnonymisedAthlete])
-async def list_shared_athletes(
+@limiter.limit("30/minute")
+def list_shared_athletes(
+    request: Request,
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     current_user: AuthenticatedUser = Depends(get_current_user),
@@ -84,16 +89,14 @@ async def list_shared_athletes(
     if not opted_in_coach_ids:
         return []
 
-    # Get athletes from opted-in coaches
-    all_athletes = []
-    for coach_id in opted_in_coach_ids:
-        athletes = (
-            client.table("athletes")
-            .select("id, gender, coach_id")
-            .eq("coach_id", coach_id)
-            .execute()
-        )
-        all_athletes.extend(athletes.data)
+    # Get athletes from opted-in coaches in a single query
+    athletes_result = (
+        client.table("athletes")
+        .select("id, gender, coach_id")
+        .in_("coach_id", opted_in_coach_ids)
+        .execute()
+    )
+    all_athletes = athletes_result.data or []
 
     # Apply pagination
     paginated = all_athletes[skip : skip + limit]
@@ -114,7 +117,9 @@ async def list_shared_athletes(
 
 
 @router.get("/shared-athletes/{athlete_id}/events", response_model=List[SharedEvent])
-async def get_shared_athlete_events(
+@limiter.limit("30/minute")
+def get_shared_athlete_events(
+    request: Request,
     athlete_id: UUID,
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),

@@ -30,7 +30,7 @@ def _verify_athlete_ownership(client, athlete_id: UUID, coach_id: UUID) -> bool:
 
 
 @router.get("/athlete/{athlete_id}", response_model=List[PerformanceEventResponse])
-async def list_events_for_athlete(
+def list_events_for_athlete(
     athlete_id: UUID,
     start_date: Optional[date] = Query(None, description="Filter events from this date"),
     end_date: Optional[date] = Query(None, description="Filter events until this date"),
@@ -75,7 +75,7 @@ async def list_events_for_athlete(
 
 
 @router.get("/{event_id}", response_model=PerformanceEventResponse)
-async def get_event(
+def get_event(
     event_id: UUID,
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
@@ -113,7 +113,7 @@ async def get_event(
 
 
 @router.post("/", response_model=PerformanceEventResponse, status_code=status.HTTP_201_CREATED)
-async def create_event(
+def create_event(
     event: PerformanceEventCreate,
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
@@ -155,7 +155,7 @@ async def create_event(
 
 
 @router.patch("/{event_id}", response_model=PerformanceEventResponse)
-async def update_event(
+def update_event(
     event_id: UUID,
     event: PerformanceEventUpdate,
     current_user: AuthenticatedUser = Depends(get_current_user),
@@ -210,7 +210,7 @@ async def update_event(
 
 
 @router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_event(
+def delete_event(
     event_id: UUID,
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):

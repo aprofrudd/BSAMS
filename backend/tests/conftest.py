@@ -58,6 +58,8 @@ def _reset_rate_limiters():
     yield
     from app.routers.uploads import limiter as uploads_limiter
     from app.routers.auth import limiter as auth_limiter
+    from app.routers.admin import limiter as admin_limiter
 
     uploads_limiter.reset()
     auth_limiter.reset()
+    admin_limiter.reset()

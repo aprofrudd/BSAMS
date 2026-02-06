@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { athletesApi } from '@/lib/api';
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
 import type { Athlete } from '@/lib/types';
 
 interface AthleteCreateModalProps {
@@ -10,6 +11,7 @@ interface AthleteCreateModalProps {
 }
 
 export function AthleteCreateModal({ onClose, onCreated }: AthleteCreateModalProps) {
+  const focusTrapRef = useFocusTrap<HTMLDivElement>();
   const [name, setName] = useState('');
   const [gender, setGender] = useState<'male' | 'female'>('male');
   const [dob, setDob] = useState('');
@@ -56,7 +58,7 @@ export function AthleteCreateModal({ onClose, onCreated }: AthleteCreateModalPro
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="card w-full max-w-sm mx-4">
+      <div ref={focusTrapRef} className="card w-full max-w-sm mx-4" role="dialog" aria-modal="true">
         <h2 className="text-lg font-semibold text-accent mb-4">Add Athlete</h2>
 
         <form onSubmit={handleSubmit} className="space-y-3">

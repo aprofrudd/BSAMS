@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { eventsApi } from '@/lib/api';
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
 import type { PerformanceEvent, EventMetrics } from '@/lib/types';
 
 interface EventFormModalProps {
@@ -29,6 +30,7 @@ export function EventFormModal({
   onClose,
   onSaved,
 }: EventFormModalProps) {
+  const focusTrapRef = useFocusTrap<HTMLDivElement>();
   const isEdit = !!existingEvent;
   const [eventDate, setEventDate] = useState(
     existingEvent ? toInputDate(existingEvent.event_date) : ''
@@ -132,7 +134,7 @@ export function EventFormModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="card w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+      <div ref={focusTrapRef} className="card w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true">
         <h2 className="text-lg font-semibold text-accent mb-4">
           {isEdit ? 'Edit Data' : 'Add Data'}
         </h2>

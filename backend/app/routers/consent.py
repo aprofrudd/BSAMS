@@ -12,7 +12,7 @@ router = APIRouter(prefix="/consent", tags=["consent"])
 
 
 @router.get("/", response_model=ConsentResponse)
-async def get_consent(
+def get_consent(
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """Get the current data sharing consent status for the authenticated coach."""
@@ -46,7 +46,7 @@ async def get_consent(
 
 
 @router.put("/", response_model=ConsentResponse)
-async def update_consent(
+def update_consent(
     body: ConsentUpdate,
     current_user: AuthenticatedUser = Depends(get_current_user),
 ):

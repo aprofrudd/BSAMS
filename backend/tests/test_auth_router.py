@@ -23,7 +23,7 @@ class TestLogin:
     """Test POST /api/v1/auth/login."""
 
     def test_login_success(self, mock_supabase):
-        """Should return access token on successful login."""
+        """Should return user info and set HttpOnly cookie on successful login."""
         mock_session = MagicMock()
         mock_session.access_token = "test-jwt-token"
         mock_user = MagicMock()
@@ -43,9 +43,10 @@ class TestLogin:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["access_token"] == "test-jwt-token"
+        assert "access_token" not in data
         assert data["user_id"] == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
         assert data["email"] == "test@example.com"
+        assert "access_token" in response.cookies
 
     def test_login_invalid_credentials(self, mock_supabase):
         """Should return 401 for invalid credentials."""
@@ -91,7 +92,7 @@ class TestSignup:
     """Test POST /api/v1/auth/signup."""
 
     def test_signup_success(self, mock_supabase):
-        """Should return access token on successful signup."""
+        """Should return user info and set HttpOnly cookie on successful signup."""
         mock_session = MagicMock()
         mock_session.access_token = "new-jwt-token"
         mock_user = MagicMock()
@@ -111,9 +112,10 @@ class TestSignup:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["access_token"] == "new-jwt-token"
+        assert "access_token" not in data
         assert data["user_id"] == "bbbbbbbb-cccc-dddd-eeee-ffffffffffff"
         assert data["email"] == "new@example.com"
+        assert "access_token" in response.cookies
 
     def test_signup_no_session(self, mock_supabase):
         """Should return 400 when signup requires email confirmation."""
