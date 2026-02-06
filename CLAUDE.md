@@ -65,6 +65,16 @@ backend/app/
 - Mass: `Body Mass (kg)`
 - Metrics: `CMJ Height (cm)`, `SJ Height (cm)`, `EUR (cm)`, `RSI`, `RSI Flight (ms)`, `RSI Contact (ms)`
 
+### Metric Key → Display Label Mapping
+| DB Key | Display Label |
+|--------|--------------|
+| `height_cm` | CMJ Height (cm) |
+| `sj_height_cm` | SJ Height (cm) |
+| `eur_cm` | Eccentric Utilisation Ratio (cm) |
+| `rsi` | Reactive Strength Index |
+| `flight_time_ms` | Flight Time (ms) |
+| `contraction_time_ms` | Contact Time (ms) |
+
 ### Frontend Structure
 ```
 frontend/
@@ -97,6 +107,9 @@ Dark mode default with high-contrast white text. Mobile-first (iPad priority).
 8. **CSV limits:** 10MB file size, 10,000 row maximum
 9. **Batch inserts:** CSV events inserted in single bulk operation with individual fallback
 10. **Multi-metric dashboard:** MetricSelector reads available metrics dynamically from backend
+11. **Benchmarks for all reference groups:** PerformanceGraph passes athlete gender and computed mass band to benchmarks API
+12. **Split event/benchmark loading:** Events reload on athlete/metric change; benchmarks reload on reference group change; date toggles persist across reference group switches
+13. **On-demand radar:** ZScoreRadar only mounts when user clicks "Generate Radar Plot"
 
 ## API Endpoints
 
