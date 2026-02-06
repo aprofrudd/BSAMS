@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Boxing Science Athlete Management System (BSAMS) - A commercial SaaS for high-performance athlete management. Supports CMJ, SJ, EUR, and RSI analysis.
 
-**Status:** All 4 phases complete + Security hardened + Multi-metric dashboard - Production deployed
+**Status:** All 4 phases complete + Security hardened + Multi-metric dashboard + Inline CRUD - Production deployed
 
 ## Tech Stack
 
@@ -79,7 +79,7 @@ backend/app/
 ```
 frontend/
 ├── app/         # Next.js pages (dashboard, login, upload)
-├── components/  # AppHeader, AthleteSelector, CsvPreviewTable, DataViewControls, MetricSelector, MetricBarChart, PerformanceGraph, PerformanceTable, ZScoreRadar
+├── components/  # AppHeader, AthleteEditModal, AthleteSelector, CsvPreviewTable, DataViewControls, EventFormModal, MetricSelector, MetricBarChart, PerformanceGraph, PerformanceTable, ZScoreRadar
 └── lib/         # API client, auth context, hooks, utils
 ```
 
@@ -110,6 +110,8 @@ Dark mode default with high-contrast white text. Mobile-first (iPad priority).
 11. **Benchmarks for all reference groups:** PerformanceGraph passes athlete gender and computed mass band to benchmarks API
 12. **Split event/benchmark loading:** Events reload on athlete/metric change; benchmarks reload on reference group change; date toggles persist across reference group switches
 13. **On-demand radar:** ZScoreRadar only mounts when user clicks "Generate Radar Plot"
+14. **Inline CRUD:** Add/edit/delete events via modal from PerformanceTable; edit athlete profile (name/gender/DOB) from AthleteSelector
+15. **Auto-calculated metrics:** EUR = CMJ Height - SJ Height; RSI = Flight Time / Contact Time (computed on save, not manual input)
 
 ## API Endpoints
 
@@ -118,8 +120,8 @@ Dark mode default with high-contrast white text. Mobile-first (iPad priority).
 - `/api/v1/auth/login` - User login (sets HttpOnly cookie)
 - `/api/v1/auth/logout` - User logout (clears cookie)
 - `/api/v1/auth/me` - Current user info
-- `/api/v1/athletes/` - CRUD with pagination (skip/limit)
-- `/api/v1/events/` - CRUD with pagination (skip/limit)
+- `/api/v1/athletes/` - CRUD with pagination (skip/limit), PATCH for profile updates
+- `/api/v1/events/` - CRUD with pagination (skip/limit), PATCH for event updates
 - `/api/v1/uploads/csv` - CSV upload (batch insert, auto-creates athletes)
 - `/api/v1/uploads/csv/preview` - CSV preview without saving
 - `/api/v1/analysis/benchmarks` - Statistics for any metric
@@ -144,7 +146,7 @@ Dark mode default with high-contrast white text. Mobile-first (iPad priority).
 ### Testing Requirements
 - All bug fixes must have a corresponding test
 - Run full test suite before committing: `python -m pytest tests/ -v`
-- Tests are located in `backend/tests/` (201 total)
+- Tests are located in `backend/tests/` (206 total)
 - Tests use dependency override in conftest.py (not DEV_MODE)
 - All statistical calculations require pytest unit tests
 - Test edge cases: SD=0, division by zero, mass outside known bands
