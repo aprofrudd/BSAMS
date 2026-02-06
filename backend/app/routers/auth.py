@@ -8,7 +8,7 @@ from slowapi.util import get_remote_address
 from uuid import UUID
 
 from app.core.supabase_client import get_supabase_client
-from app.core.security import get_current_user
+from app.core.security import AuthenticatedUser, get_current_user
 from app.schemas.auth import AuthRequest, AuthResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -112,7 +112,7 @@ async def login(request: Request, body: AuthRequest, response: Response):
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-async def logout(response: Response, current_user: UUID = Depends(get_current_user)):
+async def logout(response: Response, current_user: AuthenticatedUser = Depends(get_current_user)):
     """Log out the current user (invalidate session server-side)."""
     client = get_supabase_client()
     if client:
@@ -126,6 +126,6 @@ async def logout(response: Response, current_user: UUID = Depends(get_current_us
 
 
 @router.get("/me")
-async def get_me(current_user: UUID = Depends(get_current_user)):
+async def get_me(current_user: AuthenticatedUser = Depends(get_current_user)):
     """Return current authenticated user info."""
-    return {"user_id": str(current_user)}
+    return {"user_id": str(current_user.id), "role": current_user.role}

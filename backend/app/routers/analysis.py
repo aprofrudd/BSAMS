@@ -7,9 +7,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 
-from app.core.security import get_current_user
+from app.core.security import AuthenticatedUser, get_current_user
 from app.core.supabase_client import get_supabase_client
 from app.schemas.enums import Gender
+from app.services.admin_pool import get_admin_athletes
 from app.services.stat_engine import StatEngine
 
 # Keys that are metadata, not actual performance metrics
@@ -24,6 +25,13 @@ class ReferenceGroup(str, Enum):
     COHORT = "cohort"  # Whole cohort
     GENDER = "gender"  # Gender-specific
     MASS_BAND = "mass_band"  # Mass band specific
+
+
+class BenchmarkSource(str, Enum):
+    """Source of benchmark data."""
+
+    OWN = "own"  # Coach's own athletes
+    BOXING_SCIENCE = "boxing_science"  # Admin users' data pool
 
 
 class BenchmarkResponse(BaseModel):
@@ -58,7 +66,10 @@ async def get_benchmarks(
     ),
     gender: Optional[Gender] = Query(None, description="Gender filter (required if reference_group=gender)"),
     mass_band: Optional[str] = Query(None, description="Mass band filter (e.g., '70-74.9kg')"),
-    current_user: UUID = Depends(get_current_user),
+    benchmark_source: BenchmarkSource = Query(
+        BenchmarkSource.OWN, description="Source of benchmark data (own or boxing_science)"
+    ),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
     Get benchmark statistics for a metric within a reference group.
@@ -88,15 +99,19 @@ async def get_benchmarks(
             detail="Mass band parameter required when reference_group=mass_band",
         )
 
-    # Get all athletes for this coach
-    athletes_result = (
-        client.table("athletes")
-        .select("id, gender")
-        .eq("coach_id", str(current_user))
-        .execute()
-    )
+    # Get reference athletes based on benchmark source
+    if benchmark_source == BenchmarkSource.BOXING_SCIENCE:
+        athletes_data = get_admin_athletes(client)
+    else:
+        athletes_result = (
+            client.table("athletes")
+            .select("id, gender")
+            .eq("coach_id", str(current_user.id))
+            .execute()
+        )
+        athletes_data = athletes_result.data if athletes_result.data else []
 
-    if not athletes_result.data:
+    if not athletes_data:
         return BenchmarkResponse(
             count=0,
             reference_group=reference_group.value,
@@ -105,7 +120,7 @@ async def get_benchmarks(
 
     # Filter athletes by reference group
     athlete_ids = []
-    for athlete in athletes_result.data:
+    for athlete in athletes_data:
         if reference_group == ReferenceGroup.GENDER:
             if athlete["gender"] == gender.value:
                 athlete_ids.append(athlete["id"])
@@ -185,7 +200,10 @@ async def get_athlete_zscore(
     reference_group: ReferenceGroup = Query(
         ReferenceGroup.COHORT, description="Reference group for comparison"
     ),
-    current_user: UUID = Depends(get_current_user),
+    benchmark_source: BenchmarkSource = Query(
+        BenchmarkSource.OWN, description="Source of benchmark data (own or boxing_science)"
+    ),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
     Calculate the Z-score for an athlete's metric value.
@@ -205,7 +223,7 @@ async def get_athlete_zscore(
         client.table("athletes")
         .select("id, gender")
         .eq("id", str(athlete_id))
-        .eq("coach_id", str(current_user))
+        .eq("coach_id", str(current_user.id))
         .execute()
     )
 
@@ -272,25 +290,30 @@ async def get_athlete_zscore(
         mass_band_filter = StatEngine.get_mass_band(athlete_mass)
 
     # Get benchmarks for the reference group
-    # Build query for all athletes
-    athletes_query = (
-        client.table("athletes")
-        .select("id")
-        .eq("coach_id", str(current_user))
-    )
+    if benchmark_source == BenchmarkSource.BOXING_SCIENCE:
+        ref_athletes_data = get_admin_athletes(client)
+    else:
+        athletes_query = (
+            client.table("athletes")
+            .select("id")
+            .eq("coach_id", str(current_user.id))
+        )
+        if gender_filter:
+            athletes_query = athletes_query.eq("gender", gender_filter.value)
+        athletes_result = athletes_query.execute()
+        ref_athletes_data = athletes_result.data if athletes_result.data else []
 
-    if gender_filter:
-        athletes_query = athletes_query.eq("gender", gender_filter.value)
+    # Apply gender filter for boxing_science source
+    if benchmark_source == BenchmarkSource.BOXING_SCIENCE and gender_filter:
+        ref_athletes_data = [a for a in ref_athletes_data if a.get("gender") == gender_filter.value]
 
-    athletes_result = athletes_query.execute()
-
-    if not athletes_result.data:
+    if not ref_athletes_data:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No athletes in reference group",
         )
 
-    athlete_ids = [a["id"] for a in athletes_result.data]
+    athlete_ids = [a["id"] for a in ref_athletes_data]
 
     # Get all events for reference group
     events_result = (
@@ -360,7 +383,10 @@ async def get_athlete_zscores_bulk(
     reference_group: ReferenceGroup = Query(
         ReferenceGroup.COHORT, description="Reference group for comparison"
     ),
-    current_user: UUID = Depends(get_current_user),
+    benchmark_source: BenchmarkSource = Query(
+        BenchmarkSource.OWN, description="Source of benchmark data (own or boxing_science)"
+    ),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
     Calculate Z-scores for all events of an athlete in a single request.
@@ -380,7 +406,7 @@ async def get_athlete_zscores_bulk(
         client.table("athletes")
         .select("id, gender")
         .eq("id", str(athlete_id))
-        .eq("coach_id", str(current_user))
+        .eq("coach_id", str(current_user.id))
         .execute()
     )
 
@@ -409,19 +435,25 @@ async def get_athlete_zscores_bulk(
     if reference_group == ReferenceGroup.GENDER:
         gender_filter = Gender(athlete_gender)
 
-    athletes_query = (
-        client.table("athletes")
-        .select("id")
-        .eq("coach_id", str(current_user))
-    )
-    if gender_filter:
-        athletes_query = athletes_query.eq("gender", gender_filter.value)
+    if benchmark_source == BenchmarkSource.BOXING_SCIENCE:
+        ref_athletes_data = get_admin_athletes(client)
+        if gender_filter:
+            ref_athletes_data = [a for a in ref_athletes_data if a.get("gender") == gender_filter.value]
+    else:
+        athletes_query = (
+            client.table("athletes")
+            .select("id")
+            .eq("coach_id", str(current_user.id))
+        )
+        if gender_filter:
+            athletes_query = athletes_query.eq("gender", gender_filter.value)
+        athletes_result = athletes_query.execute()
+        ref_athletes_data = athletes_result.data if athletes_result.data else []
 
-    athletes_result = athletes_query.execute()
-    if not athletes_result.data:
+    if not ref_athletes_data:
         return {}
 
-    ref_athlete_ids = [a["id"] for a in athletes_result.data]
+    ref_athlete_ids = [a["id"] for a in ref_athletes_data]
 
     # Get all reference events
     ref_events = (
@@ -523,7 +555,7 @@ async def get_athlete_zscores_bulk(
 @router.get("/athlete/{athlete_id}/metrics", response_model=List[str])
 async def get_athlete_metrics(
     athlete_id: UUID,
-    current_user: UUID = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
     Get available metric keys for an athlete.
@@ -543,7 +575,7 @@ async def get_athlete_metrics(
         client.table("athletes")
         .select("id")
         .eq("id", str(athlete_id))
-        .eq("coach_id", str(current_user))
+        .eq("coach_id", str(current_user.id))
         .execute()
     )
 

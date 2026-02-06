@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.core.security import get_current_user
+from app.core.security import AuthenticatedUser, get_current_user
 from app.core.supabase_client import get_supabase_client
 from app.schemas.performance_event import (
     PerformanceEventCreate,
@@ -36,7 +36,7 @@ async def list_events_for_athlete(
     end_date: Optional[date] = Query(None, description="Filter events until this date"),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(50, ge=1, le=200, description="Maximum records to return"),
-    current_user: UUID = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
     List performance events for an athlete with optional pagination and date filtering.
@@ -52,7 +52,7 @@ async def list_events_for_athlete(
         )
 
     # Verify athlete belongs to coach
-    if not _verify_athlete_ownership(client, athlete_id, current_user):
+    if not _verify_athlete_ownership(client, athlete_id, current_user.id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Athlete not found",
@@ -77,7 +77,7 @@ async def list_events_for_athlete(
 @router.get("/{event_id}", response_model=PerformanceEventResponse)
 async def get_event(
     event_id: UUID,
-    current_user: UUID = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
     Get a single performance event by ID.
@@ -103,7 +103,7 @@ async def get_event(
     event = response.data[0]
 
     # Verify athlete belongs to coach
-    if not _verify_athlete_ownership(client, UUID(event["athlete_id"]), current_user):
+    if not _verify_athlete_ownership(client, UUID(event["athlete_id"]), current_user.id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Event not found",
@@ -115,7 +115,7 @@ async def get_event(
 @router.post("/", response_model=PerformanceEventResponse, status_code=status.HTTP_201_CREATED)
 async def create_event(
     event: PerformanceEventCreate,
-    current_user: UUID = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
     Create a new performance event.
@@ -131,7 +131,7 @@ async def create_event(
         )
 
     # Verify athlete belongs to coach
-    if not _verify_athlete_ownership(client, event.athlete_id, current_user):
+    if not _verify_athlete_ownership(client, event.athlete_id, current_user.id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Athlete not found",
@@ -158,7 +158,7 @@ async def create_event(
 async def update_event(
     event_id: UUID,
     event: PerformanceEventUpdate,
-    current_user: UUID = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
     Update an existing performance event.
@@ -183,7 +183,7 @@ async def update_event(
 
     # Verify athlete belongs to coach
     if not _verify_athlete_ownership(
-        client, UUID(existing.data[0]["athlete_id"]), current_user
+        client, UUID(existing.data[0]["athlete_id"]), current_user.id
     ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -212,7 +212,7 @@ async def update_event(
 @router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_event(
     event_id: UUID,
-    current_user: UUID = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
     Delete a performance event.
@@ -237,7 +237,7 @@ async def delete_event(
 
     # Verify athlete belongs to coach
     if not _verify_athlete_ownership(
-        client, UUID(existing.data[0]["athlete_id"]), current_user
+        client, UUID(existing.data[0]["athlete_id"]), current_user.id
     ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

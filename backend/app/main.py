@@ -10,7 +10,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from app.core.config import get_settings
-from app.routers import analysis, athletes, auth, events, uploads
+from app.routers import admin, analysis, athletes, auth, consent, events, uploads
 
 settings = get_settings()
 
@@ -60,6 +60,8 @@ app.include_router(athletes.router, prefix=settings.api_v1_prefix)
 app.include_router(events.router, prefix=settings.api_v1_prefix)
 app.include_router(uploads.router, prefix=settings.api_v1_prefix)
 app.include_router(analysis.router, prefix=settings.api_v1_prefix)
+app.include_router(consent.router, prefix=settings.api_v1_prefix)
+app.include_router(admin.router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/health")

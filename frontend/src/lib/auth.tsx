@@ -13,6 +13,7 @@ import { authApi, type AuthResponse } from './api';
 interface AuthUser {
   user_id: string;
   email: string;
+  role: 'coach' | 'admin';
 }
 
 interface AuthContextType {
@@ -34,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authApi
       .me()
       .then((data) => {
-        setUser({ user_id: data.user_id, email: '' });
+        setUser({ user_id: data.user_id, email: '', role: (data.role as 'coach' | 'admin') || 'coach' });
       })
       .catch(() => {
         setUser(null);
@@ -48,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const authUser: AuthUser = {
       user_id: response.user_id,
       email: response.email,
+      role: 'coach', // Default on login/signup; will be refreshed on next me() call
     };
     setUser(authUser);
   }, []);

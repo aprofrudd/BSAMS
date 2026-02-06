@@ -14,13 +14,14 @@ import {
 } from 'recharts';
 import { eventsApi, analysisApi } from '@/lib/api';
 import { getMetricLabel } from './MetricSelector';
-import type { ReferenceGroup, Benchmarks } from '@/lib/types';
+import type { ReferenceGroup, Benchmarks, BenchmarkSource } from '@/lib/types';
 
 interface PerformanceGraphProps {
   athleteId: string;
   referenceGroup: ReferenceGroup;
   metric: string;
   athleteGender: 'male' | 'female';
+  benchmarkSource?: BenchmarkSource;
 }
 
 interface ChartDataPoint {
@@ -36,6 +37,7 @@ export function PerformanceGraph({
   referenceGroup,
   metric,
   athleteGender,
+  benchmarkSource,
 }: PerformanceGraphProps) {
   const [data, setData] = useState<ChartDataPoint[]>([]);
   const [latestMass, setLatestMass] = useState<number | null>(null);
@@ -54,10 +56,10 @@ export function PerformanceGraph({
     loadEvents();
   }, [athleteId, metric]);
 
-  // Load benchmarks (when reference group, gender, mass, or metric changes)
+  // Load benchmarks (when reference group, gender, mass, metric, or source changes)
   useEffect(() => {
     loadBenchmarks();
-  }, [athleteId, metric, referenceGroup, athleteGender, latestMass]);
+  }, [athleteId, metric, referenceGroup, athleteGender, latestMass, benchmarkSource]);
 
   async function loadEvents() {
     try {
@@ -97,7 +99,8 @@ export function PerformanceGraph({
         referenceGroup: typeof referenceGroup;
         gender?: 'male' | 'female';
         massBand?: string;
-      } = { metric, referenceGroup };
+        benchmarkSource?: BenchmarkSource;
+      } = { metric, referenceGroup, benchmarkSource };
 
       if (referenceGroup === 'gender') {
         params.gender = athleteGender;

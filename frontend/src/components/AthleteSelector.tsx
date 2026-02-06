@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { athletesApi } from '@/lib/api';
 import { AthleteEditModal } from './AthleteEditModal';
+import { AthleteCreateModal } from './AthleteCreateModal';
 import type { Athlete } from '@/lib/types';
 
 interface AthleteSelectorProps {
@@ -23,6 +24,7 @@ export function AthleteSelector({
   const [merging, setMerging] = useState(false);
   const [mergeMessage, setMergeMessage] = useState<string | null>(null);
   const [editingAthlete, setEditingAthlete] = useState<Athlete | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
     loadAthletes();
@@ -119,8 +121,16 @@ export function AthleteSelector({
         placeholder="Search athletes..."
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
-        className="input w-full mb-4"
+        className="input w-full mb-3"
       />
+
+      {/* Add Athlete Button */}
+      <button
+        onClick={() => setShowCreateModal(true)}
+        className="w-full mb-3 px-3 py-2 rounded-lg text-sm font-medium bg-accent text-[#090A3D] hover:bg-accent/80 transition-colors"
+      >
+        + Add Athlete
+      </button>
 
       {/* Athlete List */}
       <div className="space-y-2 max-h-[40vh] md:max-h-[60vh] overflow-y-auto">
@@ -210,6 +220,18 @@ export function AthleteSelector({
               prev.map((a) => (a.id === updated.id ? updated : a))
             );
             onAthleteUpdated?.(updated);
+          }}
+        />
+      )}
+
+      {/* Create Athlete Modal */}
+      {showCreateModal && (
+        <AthleteCreateModal
+          onClose={() => setShowCreateModal(false)}
+          onCreated={(created) => {
+            setShowCreateModal(false);
+            setAthletes((prev) => [...prev, created]);
+            onSelectAthlete(created);
           }}
         />
       )}

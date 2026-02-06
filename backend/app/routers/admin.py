@@ -1,0 +1,176 @@
+"""Admin API router for viewing shared anonymised athlete data."""
+
+from typing import List
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
+
+from app.core.security import AuthenticatedUser, get_current_user
+from app.core.supabase_client import get_supabase_client
+
+router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+class AnonymisedAthlete(BaseModel):
+    """Anonymised athlete for admin view."""
+
+    id: str
+    anonymous_name: str
+    gender: str
+    coach_id: str
+
+
+class SharedEvent(BaseModel):
+    """Performance event for shared athlete view."""
+
+    id: str
+    athlete_id: str
+    event_date: str
+    metrics: dict
+
+
+def _require_admin(current_user: AuthenticatedUser) -> None:
+    """Raise 403 if user is not admin."""
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+
+
+@router.get("/shared-athletes", response_model=List[AnonymisedAthlete])
+async def list_shared_athletes(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    current_user: AuthenticatedUser = Depends(get_current_user),
+):
+    """
+    List anonymised athletes from coaches who opted in to data sharing.
+
+    Admin-only endpoint. Athlete names are replaced with sequential
+    anonymous IDs (e.g., "Athlete 001").
+    """
+    _require_admin(current_user)
+
+    client = get_supabase_client()
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database not configured",
+        )
+
+    # Find coaches who opted in to data sharing
+    consents = (
+        client.table("coach_consents")
+        .select("coach_id")
+        .eq("data_sharing_enabled", True)
+        .execute()
+    )
+
+    if not consents.data:
+        return []
+
+    opted_in_coach_ids = [c["coach_id"] for c in consents.data]
+
+    # Get athletes from opted-in coaches
+    all_athletes = []
+    for coach_id in opted_in_coach_ids:
+        athletes = (
+            client.table("athletes")
+            .select("id, gender, coach_id")
+            .eq("coach_id", coach_id)
+            .execute()
+        )
+        all_athletes.extend(athletes.data)
+
+    # Apply pagination
+    paginated = all_athletes[skip : skip + limit]
+
+    # Anonymise names
+    result = []
+    for i, athlete in enumerate(paginated):
+        result.append(
+            AnonymisedAthlete(
+                id=athlete["id"],
+                anonymous_name=f"Athlete {skip + i + 1:03d}",
+                gender=athlete["gender"],
+                coach_id=athlete["coach_id"],
+            )
+        )
+
+    return result
+
+
+@router.get("/shared-athletes/{athlete_id}/events", response_model=List[SharedEvent])
+async def get_shared_athlete_events(
+    athlete_id: UUID,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    current_user: AuthenticatedUser = Depends(get_current_user),
+):
+    """
+    Get performance events for a shared athlete.
+
+    Admin-only endpoint. Only returns events if the athlete belongs
+    to an opted-in coach.
+    """
+    _require_admin(current_user)
+
+    client = get_supabase_client()
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database not configured",
+        )
+
+    # Verify the athlete belongs to an opted-in coach
+    athlete = (
+        client.table("athletes")
+        .select("coach_id")
+        .eq("id", str(athlete_id))
+        .execute()
+    )
+
+    if not athlete.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Athlete not found",
+        )
+
+    coach_id = athlete.data[0]["coach_id"]
+
+    # Check consent
+    consent = (
+        client.table("coach_consents")
+        .select("data_sharing_enabled")
+        .eq("coach_id", coach_id)
+        .eq("data_sharing_enabled", True)
+        .execute()
+    )
+
+    if not consent.data:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Coach has not opted in to data sharing",
+        )
+
+    # Get events
+    events = (
+        client.table("performance_events")
+        .select("id, athlete_id, event_date, metrics")
+        .eq("athlete_id", str(athlete_id))
+        .order("event_date", desc=True)
+        .range(skip, skip + limit - 1)
+        .execute()
+    )
+
+    return [
+        SharedEvent(
+            id=e["id"],
+            athlete_id=e["athlete_id"],
+            event_date=e["event_date"],
+            metrics=e["metrics"],
+        )
+        for e in events.data
+    ]

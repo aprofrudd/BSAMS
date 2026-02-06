@@ -110,6 +110,9 @@ Dark mode default with high-contrast white text. Mobile-first (iPad priority).
 11. **Benchmarks for all reference groups:** PerformanceGraph passes athlete gender and computed mass band to benchmarks API
 12. **Split event/benchmark loading:** Events reload on athlete/metric change; benchmarks reload on reference group change; date toggles persist across reference group switches
 13. **On-demand radar:** ZScoreRadar only mounts when user clicks "Generate Radar Plot"
+16. **Radar date selection:** ZScoreRadar fetches all events, date dropdown selects primary event, composite metric picker fills missing metrics from other dates
+17. **Radar zone bands:** 4 background Radar elements with colored fills (green/cyan/yellow/red) at Z=3/1/0/-1 for visual zones
+18. **Radar dot colors:** Dots color-coded by Z-score (green>=1, cyan>=0, yellow>=-1, red<-1) with white stroke ring; dashed ring on override-sourced dots
 14. **Inline CRUD:** Add/edit/delete events via modal from PerformanceTable; edit athlete profile (name/gender/DOB) from AthleteSelector
 15. **Auto-calculated metrics:** EUR = CMJ Height - SJ Height; RSI = Flight Time / Contact Time (computed on save, not manual input)
 

@@ -6,7 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 
-from app.core.security import get_current_user
+from app.core.security import AuthenticatedUser, get_current_user
 from app.core.supabase_client import get_supabase_client
 from app.schemas.athlete import AthleteCreate, AthleteResponse, AthleteUpdate
 
@@ -22,7 +22,7 @@ router = APIRouter(prefix="/athletes", tags=["athletes"])
 async def list_athletes(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(50, ge=1, le=200, description="Maximum records to return"),
-    current_user: UUID = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
     List all athletes for the current coach.
@@ -39,7 +39,7 @@ async def list_athletes(
     response = (
         client.table("athletes")
         .select("*")
-        .eq("coach_id", str(current_user))
+        .eq("coach_id", str(current_user.id))
         .range(skip, skip + limit - 1)
         .execute()
     )
@@ -50,7 +50,7 @@ async def list_athletes(
 @router.get("/{athlete_id}", response_model=AthleteResponse)
 async def get_athlete(
     athlete_id: UUID,
-    current_user: UUID = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
     Get a single athlete by ID.
@@ -68,7 +68,7 @@ async def get_athlete(
         client.table("athletes")
         .select("*")
         .eq("id", str(athlete_id))
-        .eq("coach_id", str(current_user))
+        .eq("coach_id", str(current_user.id))
         .execute()
     )
 
@@ -84,7 +84,7 @@ async def get_athlete(
 @router.post("/", response_model=AthleteResponse, status_code=status.HTTP_201_CREATED)
 async def create_athlete(
     athlete: AthleteCreate,
-    current_user: UUID = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
     Create a new athlete.
@@ -99,7 +99,7 @@ async def create_athlete(
         )
 
     data = athlete.model_dump()
-    data["coach_id"] = str(current_user)
+    data["coach_id"] = str(current_user.id)
     data["gender"] = data["gender"].value  # Convert enum to string
 
     # Convert date to ISO format string if present
@@ -121,7 +121,7 @@ async def create_athlete(
 async def update_athlete(
     athlete_id: UUID,
     athlete: AthleteUpdate,
-    current_user: UUID = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
     Update an existing athlete.
@@ -140,7 +140,7 @@ async def update_athlete(
         client.table("athletes")
         .select("id")
         .eq("id", str(athlete_id))
-        .eq("coach_id", str(current_user))
+        .eq("coach_id", str(current_user.id))
         .execute()
     )
 
@@ -170,7 +170,7 @@ async def update_athlete(
         client.table("athletes")
         .update(update_data)
         .eq("id", str(athlete_id))
-        .eq("coach_id", str(current_user))
+        .eq("coach_id", str(current_user.id))
         .execute()
     )
 
@@ -180,7 +180,7 @@ async def update_athlete(
 @router.delete("/{athlete_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_athlete(
     athlete_id: UUID,
-    current_user: UUID = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
     Delete an athlete.
@@ -199,7 +199,7 @@ async def delete_athlete(
         client.table("athletes")
         .select("id")
         .eq("id", str(athlete_id))
-        .eq("coach_id", str(current_user))
+        .eq("coach_id", str(current_user.id))
         .execute()
     )
 
@@ -210,7 +210,7 @@ async def delete_athlete(
         )
 
     client.table("athletes").delete().eq("id", str(athlete_id)).eq(
-        "coach_id", str(current_user)
+        "coach_id", str(current_user.id)
     ).execute()
 
     return None
@@ -219,7 +219,7 @@ async def delete_athlete(
 @router.post("/merge", status_code=status.HTTP_200_OK)
 async def merge_athletes(
     body: MergeRequest,
-    current_user: UUID = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
     Merge two athletes by reassigning events from merge_id to keep_id,
@@ -247,7 +247,7 @@ async def merge_athletes(
             client.table("athletes")
             .select("id")
             .eq("id", str(athlete_id))
-            .eq("coach_id", str(current_user))
+            .eq("coach_id", str(current_user.id))
             .execute()
         )
         if not result.data:
@@ -279,7 +279,7 @@ async def merge_athletes(
         client.table("athletes")
         .delete()
         .eq("id", str(body.merge_id))
-        .eq("coach_id", str(current_user))
+        .eq("coach_id", str(current_user.id))
         .execute()
     )
 
@@ -292,7 +292,7 @@ async def merge_athletes(
 
 @router.delete("/", status_code=status.HTTP_200_OK)
 async def delete_all_data(
-    current_user: UUID = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
     Delete all athletes and their events for the current coach.
@@ -311,7 +311,7 @@ async def delete_all_data(
     athletes = (
         client.table("athletes")
         .select("id")
-        .eq("coach_id", str(current_user))
+        .eq("coach_id", str(current_user.id))
         .execute()
     )
 
@@ -334,7 +334,7 @@ async def delete_all_data(
             client.table("performance_events").delete().eq("athlete_id", aid).execute()
 
     # Delete all athletes for this coach
-    client.table("athletes").delete().eq("coach_id", str(current_user)).execute()
+    client.table("athletes").delete().eq("coach_id", str(current_user.id)).execute()
 
     return {
         "deleted_athletes": len(athlete_ids),

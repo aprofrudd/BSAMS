@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Upl
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-from app.core.security import get_current_user
+from app.core.security import AuthenticatedUser, get_current_user
 from app.core.supabase_client import get_supabase_client
 from app.schemas.upload import CSVUploadResult
 from app.services.csv_ingestion import CSVIngestionService
@@ -25,7 +25,7 @@ async def upload_csv(
     request: Request,
     file: UploadFile = File(..., description="CSV file to upload"),
     athlete_id: Optional[UUID] = Query(None, description="Athlete ID to associate with all rows"),
-    current_user: UUID = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
     Upload and process a CSV file containing performance data.
@@ -112,7 +112,7 @@ async def upload_csv(
             client.table("athletes")
             .select("id")
             .eq("id", str(athlete_id))
-            .eq("coach_id", str(current_user))
+            .eq("coach_id", str(current_user.id))
             .execute()
         )
         if not athlete_check.data:
@@ -143,7 +143,7 @@ async def upload_csv(
                     athlete_result = (
                         client.table("athletes")
                         .select("id")
-                        .eq("coach_id", str(current_user))
+                        .eq("coach_id", str(current_user.id))
                         .ilike("name", athlete_name)
                         .execute()
                     )
@@ -157,7 +157,7 @@ async def upload_csv(
                             client.table("athletes")
                             .insert({
                                 "name": athlete_name,
-                                "coach_id": str(current_user),
+                                "coach_id": str(current_user.id),
                                 "gender": gender,
                             })
                             .execute()
@@ -244,7 +244,7 @@ async def upload_csv(
 @router.post("/csv/preview", status_code=status.HTTP_200_OK)
 async def preview_csv(
     file: UploadFile = File(..., description="CSV file to preview"),
-    current_user: UUID = Depends(get_current_user),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ):
     """
     Preview CSV file without storing data.

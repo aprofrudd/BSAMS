@@ -12,11 +12,12 @@ import {
 } from 'recharts';
 import { analysisApi, eventsApi } from '@/lib/api';
 import { getMetricLabel } from './MetricSelector';
-import type { ReferenceGroup, PerformanceEvent } from '@/lib/types';
+import type { ReferenceGroup, PerformanceEvent, BenchmarkSource } from '@/lib/types';
 
 interface ZScoreRadarProps {
   athleteId: string;
   referenceGroup: ReferenceGroup;
+  benchmarkSource?: BenchmarkSource;
 }
 
 interface RadarDataPoint {
@@ -51,7 +52,7 @@ function getZColor(z: number): string {
   return '#f87171';
 }
 
-export function ZScoreRadar({ athleteId, referenceGroup }: ZScoreRadarProps) {
+export function ZScoreRadar({ athleteId, referenceGroup, benchmarkSource }: ZScoreRadarProps) {
   const [events, setEvents] = useState<PerformanceEvent[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [metricOverrides, setMetricOverrides] = useState<Record<string, string>>({});
@@ -178,6 +179,7 @@ export function ZScoreRadar({ athleteId, referenceGroup }: ZScoreRadarProps) {
               metric,
               referenceGroup,
               eventId: info.eventId,
+              benchmarkSource,
             })
             .then((result) => ({
               metric,
@@ -226,7 +228,7 @@ export function ZScoreRadar({ athleteId, referenceGroup }: ZScoreRadarProps) {
     return () => {
       cancelled = true;
     };
-  }, [selectedEventId, metricOverrides, referenceGroup, athleteId, events.length]);
+  }, [selectedEventId, metricOverrides, referenceGroup, benchmarkSource, athleteId, events.length]);
 
   const handleDateChange = useCallback((eventId: string) => {
     setSelectedEventId(eventId);

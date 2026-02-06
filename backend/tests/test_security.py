@@ -6,7 +6,7 @@ from uuid import UUID
 import pytest
 from fastapi import HTTPException
 
-from app.core.security import get_current_user
+from app.core.security import AuthenticatedUser, get_current_user
 
 
 def _make_request(cookies=None):
@@ -28,8 +28,8 @@ class TestGetCurrentUserBearerToken:
         assert exc_info.value.detail == "Not authenticated"
 
     @pytest.mark.asyncio
-    async def test_valid_token_returns_uuid(self):
-        """Should return user UUID for a valid token."""
+    async def test_valid_token_returns_authenticated_user(self):
+        """Should return AuthenticatedUser for a valid token."""
         mock_creds = MagicMock()
         mock_creds.credentials = "valid-token"
 
@@ -39,12 +39,18 @@ class TestGetCurrentUserBearerToken:
         mock_response = MagicMock()
         mock_response.user = mock_user
 
+        mock_profile_result = MagicMock()
+        mock_profile_result.data = [{"role": "coach"}]
+
         mock_client = MagicMock()
         mock_client.auth.get_user.return_value = mock_response
+        mock_client.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_profile_result
 
         with patch("app.core.security.get_supabase_client", return_value=mock_client):
-            user_id = await get_current_user(request=_make_request(), credentials=mock_creds)
-            assert str(user_id) == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+            result = await get_current_user(request=_make_request(), credentials=mock_creds)
+            assert isinstance(result, AuthenticatedUser)
+            assert str(result.id) == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+            assert result.role == "coach"
             mock_client.auth.get_user.assert_called_once_with("valid-token")
 
     @pytest.mark.asyncio
@@ -102,14 +108,20 @@ class TestGetCurrentUserCookie:
         mock_response = MagicMock()
         mock_response.user = mock_user
 
+        mock_profile_result = MagicMock()
+        mock_profile_result.data = [{"role": "admin"}]
+
         mock_client = MagicMock()
         mock_client.auth.get_user.return_value = mock_response
+        mock_client.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_profile_result
 
         request = _make_request(cookies={"access_token": "cookie-token"})
 
         with patch("app.core.security.get_supabase_client", return_value=mock_client):
-            user_id = await get_current_user(request=request, credentials=None)
-            assert str(user_id) == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+            result = await get_current_user(request=request, credentials=None)
+            assert isinstance(result, AuthenticatedUser)
+            assert str(result.id) == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+            assert result.role == "admin"
             mock_client.auth.get_user.assert_called_once_with("cookie-token")
 
     @pytest.mark.asyncio

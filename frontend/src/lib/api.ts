@@ -2,6 +2,7 @@ import type {
   Athlete,
   AthleteCreate,
   AthleteUpdate,
+  BenchmarkSource,
   PerformanceEvent,
   PerformanceEventCreate,
   PerformanceEventUpdate,
@@ -65,7 +66,7 @@ export const authApi = {
     fetchApi<void>('/auth/logout', { method: 'POST' }),
 
   me: () =>
-    fetchApi<{ user_id: string }>('/auth/me'),
+    fetchApi<{ user_id: string; role: string }>('/auth/me'),
 };
 
 // Athletes API
@@ -141,6 +142,7 @@ export const analysisApi = {
     referenceGroup: ReferenceGroup;
     gender?: 'male' | 'female';
     massBand?: string;
+    benchmarkSource?: BenchmarkSource;
   }) => {
     const searchParams = new URLSearchParams({
       metric: params.metric,
@@ -148,6 +150,7 @@ export const analysisApi = {
     });
     if (params.gender) searchParams.set('gender', params.gender);
     if (params.massBand) searchParams.set('mass_band', params.massBand);
+    if (params.benchmarkSource) searchParams.set('benchmark_source', params.benchmarkSource);
 
     return fetchApi<Benchmarks>(`/analysis/benchmarks?${searchParams}`);
   },
@@ -158,6 +161,7 @@ export const analysisApi = {
       metric: string;
       referenceGroup: ReferenceGroup;
       eventId?: string;
+      benchmarkSource?: BenchmarkSource;
     }
   ) => {
     const searchParams = new URLSearchParams({
@@ -165,6 +169,7 @@ export const analysisApi = {
       reference_group: params.referenceGroup,
     });
     if (params.eventId) searchParams.set('event_id', params.eventId);
+    if (params.benchmarkSource) searchParams.set('benchmark_source', params.benchmarkSource);
 
     return fetchApi<ZScoreResult>(
       `/analysis/athlete/${athleteId}/zscore?${searchParams}`
@@ -176,12 +181,14 @@ export const analysisApi = {
     params: {
       metric: string;
       referenceGroup: ReferenceGroup;
+      benchmarkSource?: BenchmarkSource;
     }
   ) => {
     const searchParams = new URLSearchParams({
       metric: params.metric,
       reference_group: params.referenceGroup,
     });
+    if (params.benchmarkSource) searchParams.set('benchmark_source', params.benchmarkSource);
 
     return fetchApi<Record<string, ZScoreResult>>(
       `/analysis/athlete/${athleteId}/zscores?${searchParams}`
@@ -233,6 +240,47 @@ export const uploadApi = {
 
     return response.json();
   },
+};
+
+// Admin API
+export interface AnonymisedAthlete {
+  id: string;
+  anonymous_name: string;
+  gender: string;
+  coach_id: string;
+}
+
+export interface SharedEvent {
+  id: string;
+  athlete_id: string;
+  event_date: string;
+  metrics: Record<string, string | number | undefined>;
+}
+
+export const adminApi = {
+  listSharedAthletes: (skip = 0, limit = 50) =>
+    fetchApi<AnonymisedAthlete[]>(`/admin/shared-athletes?skip=${skip}&limit=${limit}`),
+
+  getSharedEvents: (athleteId: string, skip = 0, limit = 50) =>
+    fetchApi<SharedEvent[]>(`/admin/shared-athletes/${athleteId}/events?skip=${skip}&limit=${limit}`),
+};
+
+// Consent API
+export interface ConsentResponse {
+  data_sharing_enabled: boolean;
+  consented_at: string | null;
+  revoked_at: string | null;
+  info_text: string;
+}
+
+export const consentApi = {
+  get: () => fetchApi<ConsentResponse>('/consent/'),
+
+  update: (dataSharingEnabled: boolean) =>
+    fetchApi<ConsentResponse>('/consent/', {
+      method: 'PUT',
+      body: JSON.stringify({ data_sharing_enabled: dataSharingEnabled }),
+    }),
 };
 
 export { ApiError };

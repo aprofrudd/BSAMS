@@ -75,6 +75,9 @@ export interface ZScoreResult {
   metric: string;
 }
 
+// Benchmark source types
+export type BenchmarkSource = 'own' | 'boxing_science';
+
 // UI types
 export type ViewMode = 'table' | 'graph';
 

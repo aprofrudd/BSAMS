@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react';
 import { eventsApi, analysisApi } from '@/lib/api';
 import { getMetricLabel } from './MetricSelector';
 import { EventFormModal } from './EventFormModal';
-import type { ReferenceGroup, PerformanceRow, PerformanceEvent } from '@/lib/types';
+import type { ReferenceGroup, PerformanceRow, PerformanceEvent, BenchmarkSource } from '@/lib/types';
 
 interface PerformanceTableProps {
   athleteId: string;
   referenceGroup: ReferenceGroup;
   metric: string;
+  benchmarkSource?: BenchmarkSource;
 }
 
 interface ColumnVisibility {
@@ -32,6 +33,7 @@ export function PerformanceTable({
   athleteId,
   referenceGroup,
   metric,
+  benchmarkSource,
 }: PerformanceTableProps) {
   const [rows, setRows] = useState<PerformanceRow[]>([]);
   const [rawEvents, setRawEvents] = useState<PerformanceEvent[]>([]);
@@ -49,7 +51,7 @@ export function PerformanceTable({
 
   useEffect(() => {
     loadData();
-  }, [athleteId, referenceGroup, metric]);
+  }, [athleteId, referenceGroup, metric, benchmarkSource]);
 
   async function loadData() {
     try {
@@ -62,6 +64,7 @@ export function PerformanceTable({
         analysisApi.getZScoresBulk(athleteId, {
           metric,
           referenceGroup,
+          benchmarkSource,
         }).catch(() => ({} as Record<string, { z_score: number; mean: number }>)),
       ]);
 

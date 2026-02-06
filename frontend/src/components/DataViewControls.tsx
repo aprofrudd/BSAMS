@@ -1,7 +1,7 @@
 'use client';
 
 import { MetricSelector } from './MetricSelector';
-import type { ReferenceGroup, ViewMode } from '@/lib/types';
+import type { ReferenceGroup, ViewMode, BenchmarkSource } from '@/lib/types';
 
 interface DataViewControlsProps {
   referenceGroup: ReferenceGroup;
@@ -12,6 +12,9 @@ interface DataViewControlsProps {
   onMetricChange: (metric: string) => void;
   athleteId?: string;
   disabled?: boolean;
+  benchmarkSource?: BenchmarkSource;
+  onBenchmarkSourceChange?: (source: BenchmarkSource) => void;
+  role?: 'coach' | 'admin';
 }
 
 export function DataViewControls({
@@ -23,6 +26,9 @@ export function DataViewControls({
   onMetricChange,
   athleteId,
   disabled = false,
+  benchmarkSource,
+  onBenchmarkSourceChange,
+  role,
 }: DataViewControlsProps) {
   return (
     <div className="card">
@@ -58,6 +64,37 @@ export function DataViewControls({
             <option value="mass_band">Mass Band (5kg)</option>
           </select>
         </div>
+
+        {/* Benchmark Source Toggle (coaches only) */}
+        {role !== 'admin' && benchmarkSource && onBenchmarkSourceChange && (
+          <div className="w-full sm:w-auto">
+            <label className="block text-sm text-white/60 mb-1">Benchmark Source</label>
+            <div className="flex rounded-lg overflow-hidden border border-secondary-muted">
+              <button
+                onClick={() => onBenchmarkSourceChange('boxing_science')}
+                disabled={disabled}
+                className={`px-3 py-2 text-sm font-medium transition-colors ${
+                  benchmarkSource === 'boxing_science'
+                    ? 'bg-accent text-primary'
+                    : 'bg-primary-dark text-white hover:bg-secondary-muted'
+                }`}
+              >
+                Boxing Science
+              </button>
+              <button
+                onClick={() => onBenchmarkSourceChange('own')}
+                disabled={disabled}
+                className={`px-3 py-2 text-sm font-medium transition-colors ${
+                  benchmarkSource === 'own'
+                    ? 'bg-accent text-primary'
+                    : 'bg-primary-dark text-white hover:bg-secondary-muted'
+                }`}
+              >
+                My Data
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* View Mode Toggle */}
         <div className="flex-shrink-0">
