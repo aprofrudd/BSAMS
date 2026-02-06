@@ -145,6 +145,14 @@ export function ZScoreRadar({ athleteId, referenceGroup, benchmarkSource }: ZSco
   useEffect(() => {
     if (!selectedEventId || events.length === 0) return;
 
+    // Compute primaryMetrics inside the effect to avoid stale closures
+    const currentEvent = events.find((e) => e.id === selectedEventId);
+    if (!currentEvent) return;
+
+    const currentPrimaryMetrics = Object.keys(currentEvent.metrics).filter(
+      (k) => !EXCLUDED_KEYS.has(k) && currentEvent.metrics[k] != null
+    );
+
     let cancelled = false;
 
     async function fetchZScores() {
@@ -153,10 +161,10 @@ export function ZScoreRadar({ athleteId, referenceGroup, benchmarkSource }: ZSco
       try {
         // Build per-metric eventId map
         const metricEventMap: Record<string, { eventId: string; date: string; isOverride: boolean }> = {};
-        for (const key of primaryMetrics) {
+        for (const key of currentPrimaryMetrics) {
           metricEventMap[key] = {
             eventId: selectedEventId!,
-            date: selectedEvent!.event_date,
+            date: currentEvent!.event_date,
             isOverride: false,
           };
         }
