@@ -47,10 +47,16 @@ def _clear_auth_cookie(response: Response) -> None:
 
 def _ensure_profile_exists(client, user_id: str, email: str) -> None:
     """Create a profiles row if one doesn't already exist."""
-    client.table("profiles").upsert(
-        {"id": user_id, "email": email, "role": "coach"},
-        on_conflict="id",
-    ).execute()
+    existing = (
+        client.table("profiles")
+        .select("id")
+        .eq("id", user_id)
+        .execute()
+    )
+    if not existing.data:
+        client.table("profiles").insert(
+            {"id": user_id, "email": email, "role": "coach"}
+        ).execute()
 
 
 @router.post("/signup", response_model=AuthResponse)
