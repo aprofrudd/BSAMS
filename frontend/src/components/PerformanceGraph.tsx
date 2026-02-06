@@ -44,6 +44,7 @@ export function PerformanceGraph({
   const [datePreset, setDatePreset] = useState<DatePreset>('All');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
+  const [excludedDates, setExcludedDates] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadData();
@@ -112,6 +113,26 @@ export function PerformanceGraph({
     });
   }, [data, datePreset, customFrom, customTo]);
 
+  // Filter out manually excluded dates
+  const visibleData = useMemo(
+    () => filteredData.filter((d) => !excludedDates.has(d.date)),
+    [filteredData, excludedDates]
+  );
+
+  // Reset excluded dates when filtered data changes
+  useEffect(() => {
+    setExcludedDates(new Set());
+  }, [data, datePreset, customFrom, customTo]);
+
+  function toggleDate(date: string) {
+    setExcludedDates((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+  }
+
   function handlePreset(preset: DatePreset) {
     setDatePreset(preset);
     setCustomFrom('');
@@ -159,7 +180,7 @@ export function PerformanceGraph({
   }
 
   // Calculate Y-axis domain including benchmark band
-  const values = filteredData.map((d) => d.value).filter((v): v is number => v !== null);
+  const values = visibleData.map((d) => d.value).filter((v): v is number => v !== null);
   let minValue = values.length > 0 ? Math.min(...values) : 0;
   let maxValue = values.length > 0 ? Math.max(...values) : 100;
 
@@ -174,6 +195,12 @@ export function PerformanceGraph({
   const padding = (maxValue - minValue) * 0.1 || 5;
   const yMin = Math.floor(minValue - padding);
   const yMax = Math.ceil(maxValue + padding);
+
+  // Compute explicit 5-unit tick intervals
+  const yTicks: number[] = [];
+  for (let t = Math.floor(yMin / 5) * 5; t <= yMax; t += 5) {
+    yTicks.push(t);
+  }
 
   const hasBenchmarkBand = benchmarks && benchmarks.mean !== null && benchmarks.std_dev !== null;
   const bandLow = hasBenchmarkBand ? benchmarks.mean! - benchmarks.std_dev! : 0;
@@ -221,6 +248,48 @@ export function PerformanceGraph({
         </div>
       </div>
 
+      {/* Entry Toggle Pills */}
+      {filteredData.length > 0 && (
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs text-white/40">Entries:</span>
+            <button
+              onClick={() => setExcludedDates(new Set())}
+              className="text-xs text-accent hover:text-accent/80 underline"
+            >
+              All
+            </button>
+            <button
+              onClick={() => setExcludedDates(new Set(filteredData.map((d) => d.date)))}
+              className="text-xs text-accent hover:text-accent/80 underline"
+            >
+              None
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1.5 max-h-[72px] overflow-y-auto">
+            {filteredData.map((d) => {
+              const checked = !excludedDates.has(d.date);
+              return (
+                <button
+                  key={d.date}
+                  onClick={() => toggleDate(d.date)}
+                  className={`flex items-center gap-1 px-2 py-0.5 text-xs rounded-full border transition-colors ${
+                    checked
+                      ? 'border-accent bg-accent/20 text-white'
+                      : 'border-[#2D5585] bg-transparent text-white/40'
+                  }`}
+                >
+                  <span className={`inline-block w-2.5 h-2.5 rounded-sm border ${
+                    checked ? 'bg-accent border-accent' : 'border-white/30'
+                  }`} />
+                  {d.dateFormatted}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Benchmark Legend */}
       {benchmarks && benchmarks.mean !== null && (
         <div className="flex flex-wrap gap-4 mb-4 text-sm">
@@ -242,7 +311,7 @@ export function PerformanceGraph({
       )}
 
       {/* Chart */}
-      {filteredData.length === 0 ? (
+      {visibleData.length === 0 ? (
         <div className="text-center py-8">
           <p className="text-white/60">No data in selected date range</p>
         </div>
@@ -250,7 +319,7 @@ export function PerformanceGraph({
         <div className="h-[300px] sm:h-[350px] md:h-[400px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
-              data={filteredData}
+              data={visibleData}
               margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#2D5585" opacity={0.5} />
@@ -262,6 +331,7 @@ export function PerformanceGraph({
               />
               <YAxis
                 domain={[yMin, yMax]}
+                ticks={yTicks}
                 stroke="#ffffff99"
                 tick={{ fill: '#ffffff99', fontSize: 12 }}
                 tickLine={{ stroke: '#ffffff99' }}
@@ -300,7 +370,7 @@ export function PerformanceGraph({
                   strokeDasharray="5 5"
                   label={{
                     value: 'Mean',
-                    position: 'right',
+                    position: 'insideTopRight',
                     fill: '#ffffff99',
                     fontSize: 11,
                   }}

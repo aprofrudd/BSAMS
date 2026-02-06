@@ -17,12 +17,17 @@ export default function Dashboard() {
   const [referenceGroup, setReferenceGroup] = useState<ReferenceGroup>('cohort');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [selectedMetric, setSelectedMetric] = useState<string>('height_cm');
+  const [showRadar, setShowRadar] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
       router.replace('/login');
     }
   }, [loading, user, router]);
+
+  useEffect(() => {
+    setShowRadar(false);
+  }, [selectedAthlete]);
 
   if (loading || !user) {
     return (
@@ -77,10 +82,27 @@ export default function Dashboard() {
 
             {/* Z-Score Radar Chart */}
             <div className="card">
-              <ZScoreRadar
-                athleteId={selectedAthlete.id}
-                referenceGroup={referenceGroup}
-              />
+              {showRadar ? (
+                <>
+                  <ZScoreRadar
+                    athleteId={selectedAthlete.id}
+                    referenceGroup={referenceGroup}
+                  />
+                  <button
+                    onClick={() => setShowRadar(false)}
+                    className="mt-4 w-full px-4 py-2 text-sm font-medium rounded bg-[#2D5585]/30 text-white/60 hover:bg-[#2D5585]/50 transition-colors"
+                  >
+                    Hide Radar
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setShowRadar(true)}
+                  className="w-full px-4 py-2 text-sm font-medium rounded bg-accent text-[#090A3D] hover:bg-accent/80 transition-colors"
+                >
+                  Generate Radar Plot
+                </button>
+              )}
             </div>
           </>
         ) : (
