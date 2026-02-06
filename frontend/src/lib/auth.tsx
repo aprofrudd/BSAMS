@@ -58,6 +58,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string) => {
       const response = await authApi.login(email, password);
       handleAuthResponse(response);
+      // Fetch actual role from server
+      try {
+        const me = await authApi.me();
+        setUser((prev) => prev ? { ...prev, role: (me.role as 'coach' | 'admin') || 'coach' } : prev);
+      } catch {
+        // Role will default to coach
+      }
     },
     [handleAuthResponse]
   );
@@ -66,6 +73,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string) => {
       const response = await authApi.signup(email, password);
       handleAuthResponse(response);
+      // Fetch actual role from server
+      try {
+        const me = await authApi.me();
+        setUser((prev) => prev ? { ...prev, role: (me.role as 'coach' | 'admin') || 'coach' } : prev);
+      } catch {
+        // Role will default to coach
+      }
     },
     [handleAuthResponse]
   );
