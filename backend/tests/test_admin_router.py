@@ -24,7 +24,10 @@ class TestListSharedAthletes:
     def test_admin_gets_anonymised_athletes(self, admin_client):
         """Admin should see anonymised athletes from opted-in coaches."""
         mock_consents = MagicMock()
-        mock_consents.data = [{"coach_id": "coach-1"}]
+        mock_consents.data = [{"coach_id": "coach-1", "data_sharing_enabled": True}]
+
+        mock_admin_profiles = MagicMock()
+        mock_admin_profiles.data = [{"id": "admin-1"}]
 
         mock_athletes = MagicMock()
         mock_athletes.data = [
@@ -34,12 +37,12 @@ class TestListSharedAthletes:
 
         mock_client = MagicMock()
 
-        call_count = [0]
-
         def table_dispatch(name):
             m = MagicMock()
             if name == "coach_consents":
-                m.select.return_value.eq.return_value.execute.return_value = mock_consents
+                m.select.return_value.execute.return_value = mock_consents
+            elif name == "profiles":
+                m.select.return_value.eq.return_value.execute.return_value = mock_admin_profiles
             elif name == "athletes":
                 m.select.return_value.eq.return_value.execute.return_value = mock_athletes
             return m
@@ -64,7 +67,7 @@ class TestListSharedAthletes:
         mock_consents.data = []
 
         mock_client = MagicMock()
-        mock_client.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_consents
+        mock_client.table.return_value.select.return_value.execute.return_value = mock_consents
 
         with patch("app.routers.admin.get_supabase_client", return_value=mock_client):
             response = admin_client.get("/api/v1/admin/shared-athletes")
