@@ -1,8 +1,10 @@
 import type {
   Athlete,
   AthleteCreate,
+  AthleteUpdate,
   PerformanceEvent,
   PerformanceEventCreate,
+  PerformanceEventUpdate,
   Benchmarks,
   ZScoreResult,
   ReferenceGroup,
@@ -78,6 +80,12 @@ export const athletesApi = {
       body: JSON.stringify(data),
     }),
 
+  update: (id: string, data: AthleteUpdate) =>
+    fetchApi<Athlete>(`/athletes/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
   delete: (id: string) =>
     fetchApi<void>(`/athletes/${id}`, { method: 'DELETE' }),
 
@@ -113,6 +121,12 @@ export const eventsApi = {
   create: (data: PerformanceEventCreate) =>
     fetchApi<PerformanceEvent>('/events/', {
       method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: PerformanceEventUpdate) =>
+    fetchApi<PerformanceEvent>(`/events/${id}`, {
+      method: 'PATCH',
       body: JSON.stringify(data),
     }),
 

@@ -15,6 +15,12 @@ export interface AthleteCreate {
   date_of_birth?: string;
 }
 
+export interface AthleteUpdate {
+  name?: string;
+  gender?: 'male' | 'female';
+  date_of_birth?: string | null;
+}
+
 // Performance Event types
 export interface PerformanceEvent {
   id: string;
@@ -39,6 +45,11 @@ export interface PerformanceEventCreate {
   athlete_id: string;
   event_date: string;
   metrics: EventMetrics;
+}
+
+export interface PerformanceEventUpdate {
+  event_date?: string;
+  metrics?: EventMetrics;
 }
 
 // Analysis types

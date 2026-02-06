@@ -44,6 +44,7 @@ export default function Dashboard() {
         <AthleteSelector
           selectedAthlete={selectedAthlete}
           onSelectAthlete={setSelectedAthlete}
+          onAthleteUpdated={(updated) => setSelectedAthlete(updated)}
         />
       </aside>
 
