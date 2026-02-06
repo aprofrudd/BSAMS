@@ -11,6 +11,7 @@ interface PerformanceTableProps {
   referenceGroup: ReferenceGroup;
   metric: string;
   benchmarkSource?: BenchmarkSource;
+  onDataChanged?: () => void;
 }
 
 interface ColumnVisibility {
@@ -34,6 +35,7 @@ export function PerformanceTable({
   referenceGroup,
   metric,
   benchmarkSource,
+  onDataChanged,
 }: PerformanceTableProps) {
   const [rows, setRows] = useState<PerformanceRow[]>([]);
   const [rawEvents, setRawEvents] = useState<PerformanceEvent[]>([]);
@@ -98,6 +100,7 @@ export function PerformanceTable({
     try {
       await eventsApi.delete(eventId);
       loadData();
+      onDataChanged?.();
     } catch {
       setError('Failed to delete event');
     }
@@ -152,7 +155,7 @@ export function PerformanceTable({
           <EventFormModal
             athleteId={athleteId}
             onClose={() => setShowAddModal(false)}
-            onSaved={() => { setShowAddModal(false); loadData(); }}
+            onSaved={() => { setShowAddModal(false); loadData(); onDataChanged?.(); }}
           />
         )}
       </div>
@@ -303,7 +306,7 @@ export function PerformanceTable({
         <EventFormModal
           athleteId={athleteId}
           onClose={() => setShowAddModal(false)}
-          onSaved={() => { setShowAddModal(false); loadData(); }}
+          onSaved={() => { setShowAddModal(false); loadData(); onDataChanged?.(); }}
         />
       )}
 
@@ -313,7 +316,7 @@ export function PerformanceTable({
           athleteId={athleteId}
           existingEvent={editingEvent}
           onClose={() => setEditingEvent(null)}
-          onSaved={() => { setEditingEvent(null); loadData(); }}
+          onSaved={() => { setEditingEvent(null); loadData(); onDataChanged?.(); }}
         />
       )}
     </div>

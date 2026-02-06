@@ -15,6 +15,7 @@ interface DataViewControlsProps {
   benchmarkSource?: BenchmarkSource;
   onBenchmarkSourceChange?: (source: BenchmarkSource) => void;
   role?: 'coach' | 'admin';
+  dataVersion?: number;
 }
 
 export function DataViewControls({
@@ -29,6 +30,7 @@ export function DataViewControls({
   benchmarkSource,
   onBenchmarkSourceChange,
   role,
+  dataVersion,
 }: DataViewControlsProps) {
   return (
     <div className="card">
@@ -42,6 +44,7 @@ export function DataViewControls({
               selectedMetric={selectedMetric}
               onMetricChange={onMetricChange}
               disabled={disabled}
+              dataVersion={dataVersion}
             />
           ) : (
             <select className="select w-full" disabled>

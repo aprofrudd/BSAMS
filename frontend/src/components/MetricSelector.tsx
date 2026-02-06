@@ -8,6 +8,7 @@ interface MetricSelectorProps {
   selectedMetric: string;
   onMetricChange: (metric: string) => void;
   disabled?: boolean;
+  dataVersion?: number;
 }
 
 const METRIC_LABELS: Record<string, string> = {
@@ -28,6 +29,7 @@ export function MetricSelector({
   selectedMetric,
   onMetricChange,
   disabled = false,
+  dataVersion = 0,
 }: MetricSelectorProps) {
   const [metrics, setMetrics] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -51,7 +53,7 @@ export function MetricSelector({
       .finally(() => {
         setIsLoading(false);
       });
-  }, [athleteId]);
+  }, [athleteId, dataVersion]);
 
   return (
     <select

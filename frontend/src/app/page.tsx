@@ -24,6 +24,7 @@ export default function Dashboard() {
     user?.role === 'admin' ? 'own' : 'boxing_science'
   );
   const [adminTab, setAdminTab] = useState<'my_athletes' | 'shared_data'>('my_athletes');
+  const [dataVersion, setDataVersion] = useState(0);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -101,6 +102,7 @@ export default function Dashboard() {
               benchmarkSource={benchmarkSource}
               onBenchmarkSourceChange={setBenchmarkSource}
               role={user?.role}
+              dataVersion={dataVersion}
             />
 
             {/* Data Display */}
@@ -113,6 +115,7 @@ export default function Dashboard() {
                       referenceGroup={referenceGroup}
                       metric={selectedMetric}
                       benchmarkSource={benchmarkSource}
+                      onDataChanged={() => setDataVersion((v) => v + 1)}
                     />
                   ) : (
                     <PerformanceGraph
