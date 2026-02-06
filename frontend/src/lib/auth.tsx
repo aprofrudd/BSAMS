@@ -8,7 +8,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import { authApi, setAuthToken, type AuthResponse } from './api';
+import { authApi, type AuthResponse } from './api';
 
 interface AuthUser {
   user_id: string;
@@ -25,38 +25,30 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const TOKEN_KEY = 'bsams_token';
-const USER_KEY = 'bsams_user';
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Restore session from localStorage on mount
+  // Restore session from HttpOnly cookie by calling /auth/me
   useEffect(() => {
-    const savedToken = localStorage.getItem(TOKEN_KEY);
-    const savedUser = localStorage.getItem(USER_KEY);
-
-    if (savedToken && savedUser) {
-      setAuthToken(savedToken);
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch {
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(USER_KEY);
-      }
-    }
-    setLoading(false);
+    authApi
+      .me()
+      .then((data) => {
+        setUser({ user_id: data.user_id, email: '' });
+      })
+      .catch(() => {
+        setUser(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   const handleAuthResponse = useCallback((response: AuthResponse) => {
-    setAuthToken(response.access_token);
-    localStorage.setItem(TOKEN_KEY, response.access_token);
     const authUser: AuthUser = {
       user_id: response.user_id,
       email: response.email,
     };
-    localStorage.setItem(USER_KEY, JSON.stringify(authUser));
     setUser(authUser);
   }, []);
 
@@ -82,9 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Ignore errors — clear local state regardless
     }
-    setAuthToken(null);
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
     setUser(null);
   }, []);
 

@@ -1,6 +1,10 @@
 """Authentication API router."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import os
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from uuid import UUID
 
 from app.core.supabase_client import get_supabase_client
@@ -8,10 +12,42 @@ from app.core.security import get_current_user
 from app.schemas.auth import AuthRequest, AuthResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+limiter = Limiter(key_func=get_remote_address)
+
+# Cookie settings
+COOKIE_NAME = "access_token"
+COOKIE_MAX_AGE = 60 * 60 * 24 * 7  # 7 days
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
+COOKIE_SAMESITE = "lax"
+
+
+def _set_auth_cookie(response: Response, token: str) -> None:
+    """Set HttpOnly auth cookie on response."""
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+        max_age=COOKIE_MAX_AGE,
+        path="/",
+    )
+
+
+def _clear_auth_cookie(response: Response) -> None:
+    """Clear auth cookie from response."""
+    response.delete_cookie(
+        key=COOKIE_NAME,
+        path="/",
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
+    )
 
 
 @router.post("/signup", response_model=AuthResponse)
-async def signup(body: AuthRequest):
+@limiter.limit("5/minute")
+async def signup(request: Request, body: AuthRequest, response: Response):
     """Sign up a new user with email and password."""
     client = get_supabase_client()
     if not client:
@@ -21,7 +57,7 @@ async def signup(body: AuthRequest):
         )
 
     try:
-        response = client.auth.sign_up(
+        result = client.auth.sign_up(
             {"email": body.email, "password": body.password}
         )
     except Exception as e:
@@ -30,21 +66,24 @@ async def signup(body: AuthRequest):
             detail=str(e),
         )
 
-    if not response.session:
+    if not result.session:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Signup failed. Check if email confirmation is required.",
         )
 
+    _set_auth_cookie(response, result.session.access_token)
+
     return AuthResponse(
-        access_token=response.session.access_token,
-        user_id=response.user.id,
-        email=response.user.email,
+        access_token=result.session.access_token,
+        user_id=result.user.id,
+        email=result.user.email,
     )
 
 
 @router.post("/login", response_model=AuthResponse)
-async def login(body: AuthRequest):
+@limiter.limit("5/minute")
+async def login(request: Request, body: AuthRequest, response: Response):
     """Log in with email and password."""
     client = get_supabase_client()
     if not client:
@@ -54,7 +93,7 @@ async def login(body: AuthRequest):
         )
 
     try:
-        response = client.auth.sign_in_with_password(
+        result = client.auth.sign_in_with_password(
             {"email": body.email, "password": body.password}
         )
     except Exception as e:
@@ -63,25 +102,26 @@ async def login(body: AuthRequest):
             detail="Invalid email or password",
         )
 
+    _set_auth_cookie(response, result.session.access_token)
+
     return AuthResponse(
-        access_token=response.session.access_token,
-        user_id=response.user.id,
-        email=response.user.email,
+        access_token=result.session.access_token,
+        user_id=result.user.id,
+        email=result.user.email,
     )
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-async def logout(current_user: UUID = Depends(get_current_user)):
+async def logout(response: Response, current_user: UUID = Depends(get_current_user)):
     """Log out the current user (invalidate session server-side)."""
     client = get_supabase_client()
-    if not client:
-        return None
+    if client:
+        try:
+            client.auth.sign_out()
+        except Exception:
+            pass
 
-    try:
-        client.auth.sign_out()
-    except Exception:
-        pass
-
+    _clear_auth_cookie(response)
     return None
 
 

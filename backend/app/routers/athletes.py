@@ -3,7 +3,7 @@
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.security import get_current_user
 from app.core.supabase_client import get_supabase_client
@@ -14,12 +14,14 @@ router = APIRouter(prefix="/athletes", tags=["athletes"])
 
 @router.get("/", response_model=List[AthleteResponse])
 async def list_athletes(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(50, ge=1, le=200, description="Maximum records to return"),
     current_user: UUID = Depends(get_current_user),
 ):
     """
     List all athletes for the current coach.
 
-    Returns a list of athletes belonging to the authenticated coach.
+    Returns a paginated list of athletes belonging to the authenticated coach.
     """
     client = get_supabase_client()
     if not client:
@@ -32,6 +34,7 @@ async def list_athletes(
         client.table("athletes")
         .select("*")
         .eq("coach_id", str(current_user))
+        .range(skip, skip + limit - 1)
         .execute()
     )
 

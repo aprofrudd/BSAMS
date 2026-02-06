@@ -2,24 +2,23 @@
 
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.core.config import get_settings
 from app.core.supabase_client import get_supabase_client
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
 ) -> UUID:
     """
     Get the current authenticated user.
 
-    In dev mode (DEV_MODE=true), returns a hardcoded UUID from settings.
-    In production, validates the JWT Bearer token via Supabase Auth
-    and returns the authenticated user's UUID.
+    Reads JWT from HttpOnly cookie first, then falls back to Authorization header.
+    Validates the token via Supabase Auth and returns the authenticated user's UUID.
 
     Returns:
         UUID: The current user's ID.
@@ -27,19 +26,18 @@ async def get_current_user(
     Raises:
         HTTPException: 401 if token is missing or invalid.
     """
-    settings = get_settings()
+    # Try cookie first, then Authorization header
+    token = request.cookies.get("access_token")
+    if not token and credentials:
+        token = credentials.credentials
 
-    if settings.dev_mode:
-        return UUID(settings.dev_user_id)
-
-    if not credentials:
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    token = credentials.credentials
     client = get_supabase_client()
     if not client:
         raise HTTPException(

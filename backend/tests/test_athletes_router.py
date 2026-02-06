@@ -40,7 +40,7 @@ class TestListAthletes:
 
     def test_list_athletes_success(self, mock_supabase, sample_athlete_data):
         """Should return list of athletes."""
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [
+        mock_supabase.table.return_value.select.return_value.eq.return_value.range.return_value.execute.return_value.data = [
             sample_athlete_data
         ]
 
@@ -53,7 +53,7 @@ class TestListAthletes:
 
     def test_list_athletes_empty(self, mock_supabase):
         """Should return empty list when no athletes exist."""
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = (
+        mock_supabase.table.return_value.select.return_value.eq.return_value.range.return_value.execute.return_value.data = (
             []
         )
 

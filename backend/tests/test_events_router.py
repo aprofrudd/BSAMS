@@ -71,8 +71,8 @@ class TestListEventsForAthlete:
                     {"id": sample_athlete_id}
                 ]
             else:  # performance_events
-                # Events query chain
-                mock_table.select.return_value.eq.return_value.order.return_value.execute.return_value.data = [
+                # Events query chain with pagination (.range())
+                mock_table.select.return_value.eq.return_value.order.return_value.range.return_value.execute.return_value.data = [
                     sample_event_data
                 ]
             return mock_table

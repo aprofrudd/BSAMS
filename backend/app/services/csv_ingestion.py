@@ -2,15 +2,29 @@
 
 import csv
 import io
+import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 from app.schemas.upload import CSVColumnMapping, CSVUploadResult, RowError
 
+# Range limits for metric values
+METRIC_MIN = 0
+METRIC_MAX = 500
+BODY_MASS_MAX = 300
+
+# Regex to strip HTML tags
+HTML_TAG_RE = re.compile(r"<[^>]+>")
+
 
 class CSVIngestionService:
     """Service for parsing and processing CSV performance data."""
+
+    @staticmethod
+    def _strip_html(value: str) -> str:
+        """Strip HTML tags from a string value."""
+        return HTML_TAG_RE.sub("", value)
 
     def __init__(self, mapping: Optional[CSVColumnMapping] = None):
         """
@@ -85,6 +99,9 @@ class CSVIngestionService:
                 try:
                     parsed_value = self.parse_numeric(value)
                     if parsed_value is not None:
+                        # Validate metric range
+                        if parsed_value < METRIC_MIN or parsed_value > METRIC_MAX:
+                            continue
                         # Set test_type if not already set
                         if "test_type" not in metrics:
                             metrics["test_type"] = mapping_info["test_type"]
@@ -167,6 +184,8 @@ class CSVIngestionService:
         if mass_column in row and row[mass_column].strip():
             try:
                 body_mass_kg = self.parse_numeric(row[mass_column])
+                if body_mass_kg is not None and (body_mass_kg < 0 or body_mass_kg > BODY_MASS_MAX):
+                    body_mass_kg = None
             except ValueError:
                 # Non-fatal: log but continue
                 pass
@@ -191,14 +210,14 @@ class CSVIngestionService:
         if athlete_id:
             event["athlete_id"] = str(athlete_id)
         elif self.mapping.athlete_column and self.mapping.athlete_column in row:
-            event["athlete_name"] = row[self.mapping.athlete_column].strip()
+            event["athlete_name"] = self._strip_html(row[self.mapping.athlete_column].strip())[:100]
         elif self.mapping.first_name_column and self.mapping.first_name_column in row:
             # Build name from First Name + Surname columns
-            first = row.get(self.mapping.first_name_column, "").strip()
-            surname = row.get(self.mapping.surname_column or "", "").strip()
+            first = self._strip_html(row.get(self.mapping.first_name_column, "").strip())
+            surname = self._strip_html(row.get(self.mapping.surname_column or "", "").strip())
             full_name = f"{first} {surname}".strip() if surname else first
             if full_name:
-                event["athlete_name"] = full_name
+                event["athlete_name"] = full_name[:100]
 
         # Extract gender if available
         gender_col = self.mapping.gender_column

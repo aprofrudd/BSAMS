@@ -1,5 +1,6 @@
 'use client';
 
+import { MetricSelector } from './MetricSelector';
 import type { ReferenceGroup, ViewMode } from '@/lib/types';
 
 interface DataViewControlsProps {
@@ -7,6 +8,9 @@ interface DataViewControlsProps {
   onReferenceGroupChange: (group: ReferenceGroup) => void;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
+  selectedMetric: string;
+  onMetricChange: (metric: string) => void;
+  athleteId?: string;
   disabled?: boolean;
 }
 
@@ -15,17 +19,29 @@ export function DataViewControls({
   onReferenceGroupChange,
   viewMode,
   onViewModeChange,
+  selectedMetric,
+  onMetricChange,
+  athleteId,
   disabled = false,
 }: DataViewControlsProps) {
   return (
     <div className="card">
       <div className="flex flex-wrap items-end gap-3 sm:gap-4">
-        {/* Variable Selector (locked to CMJ Height for Phase 1) */}
+        {/* Variable Selector */}
         <div className="w-full sm:w-auto sm:flex-1 sm:min-w-[180px]">
           <label className="block text-sm text-white/60 mb-1">Variable</label>
-          <select className="select w-full" disabled>
-            <option value="height_cm">CMJ Height (cm)</option>
-          </select>
+          {athleteId ? (
+            <MetricSelector
+              athleteId={athleteId}
+              selectedMetric={selectedMetric}
+              onMetricChange={onMetricChange}
+              disabled={disabled}
+            />
+          ) : (
+            <select className="select w-full" disabled>
+              <option>Select an athlete first</option>
+            </select>
+          )}
         </div>
 
         {/* Reference Group Selector */}

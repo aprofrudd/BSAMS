@@ -11,16 +11,6 @@ import type {
 
 const API_BASE = '/api/v1';
 
-let authToken: string | null = null;
-
-export function setAuthToken(token: string | null) {
-  authToken = token;
-}
-
-export function getAuthToken(): string | null {
-  return authToken;
-}
-
 class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -28,21 +18,14 @@ class ApiError extends Error {
   }
 }
 
-function authHeaders(): Record<string, string> {
-  if (authToken) {
-    return { Authorization: `Bearer ${authToken}` };
-  }
-  return {};
-}
-
 async function fetchApi<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      ...authHeaders(),
       ...options?.headers,
     },
     ...options,
@@ -162,6 +145,26 @@ export const analysisApi = {
       `/analysis/athlete/${athleteId}/zscore?${searchParams}`
     );
   },
+
+  getZScoresBulk: (
+    athleteId: string,
+    params: {
+      metric: string;
+      referenceGroup: ReferenceGroup;
+    }
+  ) => {
+    const searchParams = new URLSearchParams({
+      metric: params.metric,
+      reference_group: params.referenceGroup,
+    });
+
+    return fetchApi<Record<string, ZScoreResult>>(
+      `/analysis/athlete/${athleteId}/zscores?${searchParams}`
+    );
+  },
+
+  getAvailableMetrics: (athleteId: string) =>
+    fetchApi<string[]>(`/analysis/athlete/${athleteId}/metrics`),
 };
 
 // Upload API
@@ -176,7 +179,7 @@ export const uploadApi = {
 
     const response = await fetch(url, {
       method: 'POST',
-      headers: authHeaders(),
+      credentials: 'include',
       body: formData,
     });
 
@@ -194,7 +197,7 @@ export const uploadApi = {
 
     const response = await fetch(`${API_BASE}/uploads/csv/preview`, {
       method: 'POST',
-      headers: authHeaders(),
+      credentials: 'include',
       body: formData,
     });
 

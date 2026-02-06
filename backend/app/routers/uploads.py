@@ -3,7 +3,9 @@
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.core.security import get_current_user
 from app.core.supabase_client import get_supabase_client
@@ -11,10 +13,16 @@ from app.schemas.upload import CSVUploadResult
 from app.services.csv_ingestion import CSVIngestionService
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
+limiter = Limiter(key_func=get_remote_address)
+
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+MAX_ROW_COUNT = 10_000
 
 
 @router.post("/csv", response_model=CSVUploadResult, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
 async def upload_csv(
+    request: Request,
     file: UploadFile = File(..., description="CSV file to upload"),
     athlete_id: Optional[UUID] = Query(None, description="Athlete ID to associate with all rows"),
     current_user: UUID = Depends(get_current_user),
@@ -35,9 +43,14 @@ async def upload_csv(
             detail="File must be a CSV file",
         )
 
-    # Read file content
+    # Read file content with size check
     try:
         content = await file.read()
+        if len(content) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File too large. Maximum size is {MAX_FILE_SIZE // (1024 * 1024)}MB.",
+            )
         csv_content = content.decode("utf-8")
     except UnicodeDecodeError:
         raise HTTPException(
@@ -66,6 +79,13 @@ async def upload_csv(
             detail="No valid data found in CSV. Check column names and date format (DD/MM/YYYY).",
         )
 
+    # Check row count limit
+    if len(events) > MAX_ROW_COUNT:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Too many rows. Maximum is {MAX_ROW_COUNT:,} rows per upload.",
+        )
+
     # Get Supabase client
     client = get_supabase_client()
     if not client:
@@ -82,7 +102,7 @@ async def upload_csv(
         if name and gender and name not in athlete_gender:
             athlete_gender[name] = gender
 
-    # Store events in database
+    # Resolve athlete IDs for all events
     processed_count = 0
     athlete_cache: dict[str, str] = {}  # name -> id cache
 
@@ -101,6 +121,8 @@ async def upload_csv(
                 detail="Athlete not found",
             )
 
+    # Resolve athlete IDs and build batch list
+    batch_list = []
     for event in events:
         try:
             resolved_athlete_id = None
@@ -142,13 +164,11 @@ async def upload_csv(
                     athlete_cache[athlete_name] = resolved_athlete_id
 
             if resolved_athlete_id:
-                event_data = {
+                batch_list.append({
                     "athlete_id": resolved_athlete_id,
                     "event_date": event["event_date"],
                     "metrics": event["metrics"],
-                }
-                client.table("performance_events").insert(event_data).execute()
-                processed_count += 1
+                })
             else:
                 errors.append({
                     "row": 0,
@@ -158,8 +178,25 @@ async def upload_csv(
         except Exception as e:
             errors.append({
                 "row": 0,
-                "reason": f"Database error: {str(e)}",
+                "reason": f"Error resolving athlete: {str(e)}",
             })
+
+    # Batch insert all events at once
+    if batch_list:
+        try:
+            client.table("performance_events").insert(batch_list).execute()
+            processed_count = len(batch_list)
+        except Exception:
+            # Fall back to individual inserts on batch failure
+            for event_data in batch_list:
+                try:
+                    client.table("performance_events").insert(event_data).execute()
+                    processed_count += 1
+                except Exception as e:
+                    errors.append({
+                        "row": 0,
+                        "reason": f"Database error: {str(e)}",
+                    })
 
     return CSVUploadResult(
         processed=processed_count,
@@ -186,9 +223,14 @@ async def preview_csv(
             detail="File must be a CSV file",
         )
 
-    # Read file content
+    # Read file content with size check
     try:
         content = await file.read()
+        if len(content) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File too large. Maximum size is {MAX_FILE_SIZE // (1024 * 1024)}MB.",
+            )
         csv_content = content.decode("utf-8")
     except UnicodeDecodeError:
         raise HTTPException(

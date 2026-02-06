@@ -57,10 +57,10 @@ class TestAthleteCreate:
         assert "String should have at least 1 character" in str(exc_info.value)
 
     def test_long_name_rejected(self):
-        """Should reject names over 255 characters."""
+        """Should reject names over 100 characters."""
         with pytest.raises(ValidationError) as exc_info:
-            AthleteCreate(name="x" * 256, gender=Gender.MALE)
-        assert "String should have at most 255 characters" in str(exc_info.value)
+            AthleteCreate(name="x" * 101, gender=Gender.MALE)
+        assert "String should have at most 100 characters" in str(exc_info.value)
 
     def test_invalid_gender_rejected(self):
         """Should reject invalid gender values."""

@@ -12,7 +12,7 @@ from app.schemas.enums import Gender
 class AthleteBase(BaseModel):
     """Base athlete schema with shared fields."""
 
-    name: str = Field(..., min_length=1, max_length=255)
+    name: str = Field(..., min_length=1, max_length=100)
     gender: Gender
     date_of_birth: Optional[date] = None
 
@@ -26,7 +26,7 @@ class AthleteCreate(AthleteBase):
 class AthleteUpdate(BaseModel):
     """Schema for updating an athlete."""
 
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
     gender: Optional[Gender] = None
     date_of_birth: Optional[date] = None
 

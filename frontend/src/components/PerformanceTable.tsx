@@ -2,16 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import { eventsApi, analysisApi } from '@/lib/api';
+import { getMetricLabel } from './MetricSelector';
 import type { PerformanceEvent, ReferenceGroup, PerformanceRow } from '@/lib/types';
 
 interface PerformanceTableProps {
   athleteId: string;
   referenceGroup: ReferenceGroup;
+  metric: string;
 }
 
 export function PerformanceTable({
   athleteId,
   referenceGroup,
+  metric,
 }: PerformanceTableProps) {
   const [rows, setRows] = useState<PerformanceRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -19,44 +22,34 @@ export function PerformanceTable({
 
   useEffect(() => {
     loadData();
-  }, [athleteId, referenceGroup]);
+  }, [athleteId, referenceGroup, metric]);
 
   async function loadData() {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Fetch events
-      const events = await eventsApi.listForAthlete(athleteId);
+      // Fetch events and bulk Z-scores in parallel
+      const [events, zScores] = await Promise.all([
+        eventsApi.listForAthlete(athleteId),
+        analysisApi.getZScoresBulk(athleteId, {
+          metric,
+          referenceGroup,
+        }).catch(() => ({} as Record<string, { z_score: number }>)),
+      ]);
 
-      // Calculate Z-scores for each event
-      const rowsWithZScores: PerformanceRow[] = await Promise.all(
-        events.map(async (event) => {
-          const heightCm = event.metrics.height_cm ?? null;
-          let zScore: number | null = null;
+      const rowsWithZScores: PerformanceRow[] = events.map((event) => {
+        const metricValue = event.metrics[metric] != null ? Number(event.metrics[metric]) : null;
+        const zResult = zScores[event.id];
 
-          if (heightCm !== null) {
-            try {
-              const zResult = await analysisApi.getZScore(athleteId, {
-                metric: 'height_cm',
-                referenceGroup,
-                eventId: event.id,
-              });
-              zScore = zResult.z_score;
-            } catch {
-              // Z-score calculation failed, leave as null
-            }
-          }
-
-          return {
-            id: event.id,
-            date: event.event_date,
-            bodyMass: event.metrics.body_mass_kg ?? null,
-            value: heightCm,
-            zScore,
-          };
-        })
-      );
+        return {
+          id: event.id,
+          date: event.event_date,
+          bodyMass: event.metrics.body_mass_kg ?? null,
+          value: metricValue,
+          zScore: zResult?.z_score ?? null,
+        };
+      });
 
       setRows(rowsWithZScores);
     } catch (err) {
@@ -66,6 +59,8 @@ export function PerformanceTable({
       setIsLoading(false);
     }
   }
+
+  const label = getMetricLabel(metric);
 
   if (isLoading) {
     return (
@@ -108,7 +103,7 @@ export function PerformanceTable({
                 Mass (kg)
               </th>
               <th className="text-right py-2 sm:py-3 px-3 sm:px-4 text-white/60 font-medium text-sm sm:text-base">
-                CMJ (cm)
+                {label}
               </th>
               <th className="text-right py-2 sm:py-3 px-3 sm:px-4 text-white/60 font-medium text-sm sm:text-base">
                 Z-Score
@@ -128,7 +123,7 @@ export function PerformanceTable({
                   {row.bodyMass?.toFixed(1) ?? '-'}
                 </td>
                 <td className="py-2 sm:py-3 px-3 sm:px-4 text-right font-medium text-accent text-sm sm:text-base">
-                  {row.value?.toFixed(1) ?? '-'}
+                  {row.value?.toFixed(2) ?? '-'}
                 </td>
                 <td className="py-2 sm:py-3 px-3 sm:px-4 text-right text-sm sm:text-base">
                   {row.zScore !== null ? (

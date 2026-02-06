@@ -1,7 +1,7 @@
 """Analysis API router for benchmarks and Z-score calculations."""
 
 from enum import Enum
-from typing import List, Optional
+from typing import Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -11,6 +11,9 @@ from app.core.security import get_current_user
 from app.core.supabase_client import get_supabase_client
 from app.schemas.enums import Gender
 from app.services.stat_engine import StatEngine
+
+# Keys that are metadata, not actual performance metrics
+NON_METRIC_KEYS = {"test_type", "body_mass_kg"}
 
 router = APIRouter(prefix="/analysis", tags=["analysis"])
 
@@ -348,3 +351,225 @@ async def get_athlete_zscore(
         reference_group=ref_group_label,
         metric=metric,
     )
+
+
+@router.get("/athlete/{athlete_id}/zscores", response_model=Dict[str, ZScoreResponse])
+async def get_athlete_zscores_bulk(
+    athlete_id: UUID,
+    metric: str = Query(..., description="Metric key to analyze (e.g., 'height_cm')"),
+    reference_group: ReferenceGroup = Query(
+        ReferenceGroup.COHORT, description="Reference group for comparison"
+    ),
+    current_user: UUID = Depends(get_current_user),
+):
+    """
+    Calculate Z-scores for all events of an athlete in a single request.
+
+    Returns a dict mapping event_id -> ZScoreResponse.
+    This replaces N individual /zscore calls with a single bulk request.
+    """
+    client = get_supabase_client()
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database not configured",
+        )
+
+    # Verify athlete belongs to coach
+    athlete_result = (
+        client.table("athletes")
+        .select("id, gender")
+        .eq("id", str(athlete_id))
+        .eq("coach_id", str(current_user))
+        .execute()
+    )
+
+    if not athlete_result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Athlete not found",
+        )
+
+    athlete = athlete_result.data[0]
+    athlete_gender = athlete["gender"]
+
+    # Get all events for this athlete
+    athlete_events = (
+        client.table("performance_events")
+        .select("id, metrics")
+        .eq("athlete_id", str(athlete_id))
+        .execute()
+    )
+
+    if not athlete_events.data:
+        return {}
+
+    # Build reference group
+    gender_filter = None
+    if reference_group == ReferenceGroup.GENDER:
+        gender_filter = Gender(athlete_gender)
+
+    athletes_query = (
+        client.table("athletes")
+        .select("id")
+        .eq("coach_id", str(current_user))
+    )
+    if gender_filter:
+        athletes_query = athletes_query.eq("gender", gender_filter.value)
+
+    athletes_result = athletes_query.execute()
+    if not athletes_result.data:
+        return {}
+
+    ref_athlete_ids = [a["id"] for a in athletes_result.data]
+
+    # Get all reference events
+    ref_events = (
+        client.table("performance_events")
+        .select("metrics")
+        .in_("athlete_id", ref_athlete_ids)
+        .execute()
+    )
+
+    # Extract reference values for the metric
+    ref_values = []
+    for event in ref_events.data:
+        metrics = event.get("metrics", {})
+
+        if reference_group == ReferenceGroup.MASS_BAND:
+            event_mass = metrics.get("body_mass_kg")
+            if event_mass is None:
+                continue
+
+        if metric in metrics:
+            try:
+                ref_values.append(float(metrics[metric]))
+            except (TypeError, ValueError):
+                continue
+
+    if not ref_values:
+        return {}
+
+    mean = StatEngine.calculate_mean(ref_values)
+    std_dev = StatEngine.calculate_std_dev(ref_values)
+
+    if mean is None or std_dev is None:
+        return {}
+
+    ref_group_label = reference_group.value
+    if gender_filter:
+        ref_group_label = f"gender:{gender_filter.value}"
+
+    # Calculate Z-score for each event
+    results: Dict[str, ZScoreResponse] = {}
+    for event in athlete_events.data:
+        event_metrics = event.get("metrics", {})
+        if metric not in event_metrics:
+            continue
+        try:
+            value = float(event_metrics[metric])
+        except (TypeError, ValueError):
+            continue
+
+        # For mass band, check this event's mass band
+        if reference_group == ReferenceGroup.MASS_BAND:
+            event_mass = event_metrics.get("body_mass_kg")
+            if event_mass is None:
+                continue
+            mass_band_filter = StatEngine.get_mass_band(event_mass)
+            # Recalculate with mass band filtering
+            mb_values = []
+            for ref_event in ref_events.data:
+                rm = ref_event.get("metrics", {})
+                rm_mass = rm.get("body_mass_kg")
+                if rm_mass is None:
+                    continue
+                if StatEngine.get_mass_band(rm_mass) != mass_band_filter:
+                    continue
+                if metric in rm:
+                    try:
+                        mb_values.append(float(rm[metric]))
+                    except (TypeError, ValueError):
+                        continue
+            if not mb_values:
+                continue
+            mb_mean = StatEngine.calculate_mean(mb_values)
+            mb_std = StatEngine.calculate_std_dev(mb_values)
+            if mb_mean is None or mb_std is None:
+                continue
+            z = StatEngine.calculate_z_score(value, mb_mean, mb_std)
+            results[event["id"]] = ZScoreResponse(
+                value=round(value, 2),
+                z_score=z,
+                mean=mb_mean,
+                std_dev=mb_std,
+                reference_group=f"mass_band:{mass_band_filter}",
+                metric=metric,
+            )
+        else:
+            z = StatEngine.calculate_z_score(value, mean, std_dev)
+            results[event["id"]] = ZScoreResponse(
+                value=round(value, 2),
+                z_score=z,
+                mean=mean,
+                std_dev=std_dev,
+                reference_group=ref_group_label,
+                metric=metric,
+            )
+
+    return results
+
+
+@router.get("/athlete/{athlete_id}/metrics", response_model=List[str])
+async def get_athlete_metrics(
+    athlete_id: UUID,
+    current_user: UUID = Depends(get_current_user),
+):
+    """
+    Get available metric keys for an athlete.
+
+    Returns a list of distinct metric keys from the athlete's events,
+    excluding metadata fields like test_type and body_mass_kg.
+    """
+    client = get_supabase_client()
+    if not client:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database not configured",
+        )
+
+    # Verify athlete belongs to coach
+    athlete_result = (
+        client.table("athletes")
+        .select("id")
+        .eq("id", str(athlete_id))
+        .eq("coach_id", str(current_user))
+        .execute()
+    )
+
+    if not athlete_result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Athlete not found",
+        )
+
+    # Get all events for athlete
+    events_result = (
+        client.table("performance_events")
+        .select("metrics")
+        .eq("athlete_id", str(athlete_id))
+        .execute()
+    )
+
+    if not events_result.data:
+        return []
+
+    # Collect distinct metric keys
+    metric_keys: set[str] = set()
+    for event in events_result.data:
+        metrics = event.get("metrics", {})
+        for key in metrics:
+            if key not in NON_METRIC_KEYS:
+                metric_keys.add(key)
+
+    return sorted(metric_keys)

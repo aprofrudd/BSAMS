@@ -13,11 +13,13 @@ import {
   ReferenceArea,
 } from 'recharts';
 import { eventsApi, analysisApi } from '@/lib/api';
+import { getMetricLabel } from './MetricSelector';
 import type { PerformanceEvent, ReferenceGroup, Benchmarks } from '@/lib/types';
 
 interface PerformanceGraphProps {
   athleteId: string;
   referenceGroup: ReferenceGroup;
+  metric: string;
 }
 
 interface ChartDataPoint {
@@ -29,6 +31,7 @@ interface ChartDataPoint {
 export function PerformanceGraph({
   athleteId,
   referenceGroup,
+  metric,
 }: PerformanceGraphProps) {
   const [data, setData] = useState<ChartDataPoint[]>([]);
   const [benchmarks, setBenchmarks] = useState<Benchmarks | null>(null);
@@ -37,7 +40,7 @@ export function PerformanceGraph({
 
   useEffect(() => {
     loadData();
-  }, [athleteId, referenceGroup]);
+  }, [athleteId, referenceGroup, metric]);
 
   async function loadData() {
     try {
@@ -48,7 +51,7 @@ export function PerformanceGraph({
       const [events, benchmarkData] = await Promise.all([
         eventsApi.listForAthlete(athleteId),
         analysisApi.getBenchmarks({
-          metric: 'height_cm',
+          metric,
           referenceGroup,
         }).catch(() => null),
       ]);
@@ -58,7 +61,7 @@ export function PerformanceGraph({
         .map((event) => ({
           date: event.event_date,
           dateFormatted: formatDate(event.event_date),
-          value: event.metrics.height_cm ?? null,
+          value: event.metrics[metric] != null ? Number(event.metrics[metric]) : null,
         }))
         .filter((d) => d.value !== null)
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -72,6 +75,8 @@ export function PerformanceGraph({
       setIsLoading(false);
     }
   }
+
+  const label = getMetricLabel(metric);
 
   if (isLoading) {
     return (
@@ -96,7 +101,7 @@ export function PerformanceGraph({
   if (data.length === 0) {
     return (
       <div className="text-center py-8">
-        <p className="text-white/60">No performance data to display</p>
+        <p className="text-white/60">No data for {label}</p>
       </div>
     );
   }
@@ -117,14 +122,14 @@ export function PerformanceGraph({
           <div className="flex items-center gap-2">
             <div className="w-4 h-0.5 bg-white/60" />
             <span className="text-white/60">
-              Mean: {benchmarks.mean.toFixed(1)} cm
+              Mean: {benchmarks.mean.toFixed(1)}
             </span>
           </div>
           {benchmarks.ci_lower !== null && benchmarks.ci_upper !== null && (
             <div className="flex items-center gap-2">
               <div className="w-4 h-3 bg-secondary-muted/30" />
               <span className="text-white/60">
-                95% CI: {benchmarks.ci_lower.toFixed(1)} - {benchmarks.ci_upper.toFixed(1)} cm
+                95% CI: {benchmarks.ci_lower.toFixed(1)} - {benchmarks.ci_upper.toFixed(1)}
               </span>
             </div>
           )}
@@ -151,7 +156,7 @@ export function PerformanceGraph({
               tick={{ fill: '#ffffff99', fontSize: 12 }}
               tickLine={{ stroke: '#ffffff99' }}
               label={{
-                value: 'CMJ Height (cm)',
+                value: label,
                 angle: -90,
                 position: 'insideLeft',
                 fill: '#ffffff99',
@@ -166,7 +171,7 @@ export function PerformanceGraph({
               }}
               labelStyle={{ color: '#ffffff99' }}
               itemStyle={{ color: '#33CBF4' }}
-              formatter={(value: number) => [`${value.toFixed(1)} cm`, 'CMJ Height']}
+              formatter={(value: number) => [`${value.toFixed(2)}`, label]}
             />
 
             {/* Benchmark overlays */}

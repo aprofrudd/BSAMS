@@ -4,16 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Boxing Science Athlete Management System (BSAMS) - A commercial SaaS for high-performance athlete management. Phase 1 MVP focuses on Countermovement Jump (CMJ) analysis.
+Boxing Science Athlete Management System (BSAMS) - A commercial SaaS for high-performance athlete management. Supports CMJ, SJ, EUR, and RSI analysis.
 
-**Status:** All 4 phases complete - Production ready
+**Status:** All 4 phases complete + Security hardened + Multi-metric dashboard - Production deployed
 
 ## Tech Stack
 
 - **Frontend:** Next.js with TypeScript
 - **Backend:** Python FastAPI with Pydantic
 - **Database:** Supabase (PostgreSQL with Row-Level Security)
-- **Auth:** Supabase Auth
+- **Auth:** Supabase Auth (JWT via HttpOnly cookies)
 
 ## Build & Run Commands
 
@@ -22,7 +22,7 @@ Boxing Science Athlete Management System (BSAMS) - A commercial SaaS for high-pe
 cd backend
 pip install -r requirements.txt
 python -m uvicorn app.main:app --reload  # Dev server
-pytest -v                                 # Run all tests
+pytest -v                                 # Run all tests (201)
 pytest tests/test_stat_engine.py -v      # Run specific test file
 ```
 
@@ -39,29 +39,37 @@ npm test         # Run tests
 
 ### Database Schema (Event-Based)
 - `performance_events` table uses JSONB `metrics` column for metric-agnostic storage
-- Example: `{"test_type": "CMJ", "height_cm": 45.5}`
+- Example: `{"test_type": "CMJ", "height_cm": 45.5, "sj_height_cm": 35.5, "rsi": 2.21}`
 - GIN index on metrics for fast querying
 - RLS policies: users only access athletes where `coach_id = auth.uid()`
+- `profiles` table required (FK from `athletes.coach_id`)
 
 ### Backend Structure
 ```
 backend/app/
-├── routers/     # API endpoints (auth, athletes, uploads, analysis)
-├── services/    # Business logic (ingest_csv, stat_engine, benchmarks)
-├── schemas/     # Pydantic models (athlete, event, auth, upload)
+├── routers/     # API endpoints (auth, athletes, events, uploads, analysis)
+├── services/    # Business logic (csv_ingestion, stat_engine, benchmarks)
+├── schemas/     # Pydantic models (athlete, event, auth, upload, enums)
 └── core/        # Config, Supabase client, security (JWT validation)
 ```
 
 ### Key Services
 - **StatEngine:** Z-score calculation, benchmarks (Mean, Mode, SD, 95% CI)
-- **Ingestion:** CSV parsing with DD/MM/YYYY date format, JSONB mapping
+- **Ingestion:** CSV parsing with DD/MM/YYYY date format, BOM handling, First Name + Surname support, auto-creates athletes on upload
 - **Mass Banding:** 5kg increments calculated at query time (e.g., 70-74.9kg)
+
+### CSV Column Defaults
+- Date: `Test Date`
+- Name: `First Name` + `Surname` (or single `Athlete` column)
+- Gender: `Gender` (male/female)
+- Mass: `Body Mass (kg)`
+- Metrics: `CMJ Height (cm)`, `SJ Height (cm)`, `EUR (cm)`, `RSI`, `RSI Flight (ms)`, `RSI Contact (ms)`
 
 ### Frontend Structure
 ```
 frontend/
-├── app/         # Next.js pages (dashboard, login)
-├── components/  # AppHeader, AthleteSelector, DataViewControls, PerformanceGraph, PerformanceTable
+├── app/         # Next.js pages (dashboard, login, upload)
+├── components/  # AppHeader, AthleteSelector, CsvPreviewTable, DataViewControls, MetricSelector, MetricBarChart, PerformanceGraph, PerformanceTable, ZScoreRadar
 └── lib/         # API client, auth context, hooks, utils
 ```
 
@@ -81,8 +89,30 @@ Dark mode default with high-contrast white text. Mobile-first (iPad priority).
 
 1. **Dynamic Z-scores:** Calculate on-read, not stored in database
 2. **Metric-agnostic design:** JSONB metrics column avoids schema migrations for new test types
-3. **Auth:** Supabase Auth with JWT validation. `DEV_MODE=true` bypasses JWT and returns hardcoded UUID for local development
+3. **Auth:** Supabase Auth with JWT in HttpOnly cookies. Tests use dependency override (`app.dependency_overrides[get_current_user]`)
 4. **Date parsing:** Strictly DD/MM/YYYY format
+5. **Auto-create athletes:** CSV upload auto-creates athlete records when names not found in DB
+6. **Trailing slash proxy:** `skipTrailingSlashRedirect: true` + regex rewrite in next.config.js to prevent Vercel/FastAPI redirect loops
+7. **Rate limiting:** slowapi middleware (5/min auth, 10/min uploads, 60/min general)
+8. **CSV limits:** 10MB file size, 10,000 row maximum
+9. **Batch inserts:** CSV events inserted in single bulk operation with individual fallback
+10. **Multi-metric dashboard:** MetricSelector reads available metrics dynamically from backend
+
+## API Endpoints
+
+- `/health` - Health check
+- `/api/v1/auth/signup` - User signup (sets HttpOnly cookie)
+- `/api/v1/auth/login` - User login (sets HttpOnly cookie)
+- `/api/v1/auth/logout` - User logout (clears cookie)
+- `/api/v1/auth/me` - Current user info
+- `/api/v1/athletes/` - CRUD with pagination (skip/limit)
+- `/api/v1/events/` - CRUD with pagination (skip/limit)
+- `/api/v1/uploads/csv` - CSV upload (batch insert, auto-creates athletes)
+- `/api/v1/uploads/csv/preview` - CSV preview without saving
+- `/api/v1/analysis/benchmarks` - Statistics for any metric
+- `/api/v1/analysis/athlete/{id}/zscore` - Z-score for single event
+- `/api/v1/analysis/athlete/{id}/zscores` - Bulk Z-scores for all events
+- `/api/v1/analysis/athlete/{id}/metrics` - Available metric keys
 
 ## Development Rules
 
@@ -101,13 +131,18 @@ Dark mode default with high-contrast white text. Mobile-first (iPad priority).
 ### Testing Requirements
 - All bug fixes must have a corresponding test
 - Run full test suite before committing: `python -m pytest tests/ -v`
-- Tests are located in `backend/tests/`
+- Tests are located in `backend/tests/` (201 total)
+- Tests use dependency override in conftest.py (not DEV_MODE)
 - All statistical calculations require pytest unit tests
 - Test edge cases: SD=0, division by zero, mass outside known bands
-- Integration test: Upload CSV → Select Athlete → Change Reference Group → Verify graph updates
+- Integration test: Upload CSV → Select Athlete → Change Metric → Change Reference Group → Verify graph updates
+- Test CSV fixtures use `Test Date` as default date column (not `Date`)
 
 ## Deployment
 
-- **Backend:** Railway or Render
-- **Frontend:** Vercel
+- **Backend:** Railway (https://bsams-production.up.railway.app)
+- **Frontend:** Vercel (https://frontend-two-alpha-72.vercel.app)
 - **CI/CD:** GitHub Actions runs pytest on push to main
+- **Vercel env:** `NEXT_PUBLIC_API_URL` must be set cleanly (no trailing `\n`)
+- **Railway env:** `FRONTEND_URL` must be set for CORS, `COOKIE_SECURE=true` for HttpOnly cookies
+- **Supabase:** New users need a `profiles` row for the FK constraint

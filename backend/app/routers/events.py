@@ -34,12 +34,14 @@ async def list_events_for_athlete(
     athlete_id: UUID,
     start_date: Optional[date] = Query(None, description="Filter events from this date"),
     end_date: Optional[date] = Query(None, description="Filter events until this date"),
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(50, ge=1, le=200, description="Maximum records to return"),
     current_user: UUID = Depends(get_current_user),
 ):
     """
-    List all performance events for an athlete.
+    List performance events for an athlete with optional pagination and date filtering.
 
-    Returns events for the specified athlete with optional date filtering.
+    Returns events for the specified athlete.
     Only returns events if the athlete belongs to the current coach.
     """
     client = get_supabase_client()
@@ -67,7 +69,7 @@ async def list_events_for_athlete(
     if end_date:
         query = query.lte("event_date", end_date.isoformat())
 
-    response = query.order("event_date", desc=True).execute()
+    response = query.order("event_date", desc=True).range(skip, skip + limit - 1).execute()
 
     return response.data
 

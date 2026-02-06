@@ -7,6 +7,7 @@ import { AthleteSelector } from '@/components/AthleteSelector';
 import { DataViewControls } from '@/components/DataViewControls';
 import { PerformanceTable } from '@/components/PerformanceTable';
 import { PerformanceGraph } from '@/components/PerformanceGraph';
+import { ZScoreRadar } from '@/components/ZScoreRadar';
 import type { Athlete, ReferenceGroup, ViewMode } from '@/lib/types';
 
 export default function Dashboard() {
@@ -15,6 +16,7 @@ export default function Dashboard() {
   const [selectedAthlete, setSelectedAthlete] = useState<Athlete | null>(null);
   const [referenceGroup, setReferenceGroup] = useState<ReferenceGroup>('cohort');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const [selectedMetric, setSelectedMetric] = useState<string>('height_cm');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -48,24 +50,39 @@ export default function Dashboard() {
           onReferenceGroupChange={setReferenceGroup}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
+          selectedMetric={selectedMetric}
+          onMetricChange={setSelectedMetric}
+          athleteId={selectedAthlete?.id}
           disabled={!selectedAthlete}
         />
 
         {/* Data Display */}
         {selectedAthlete ? (
-          <div className="card">
-            {viewMode === 'table' ? (
-              <PerformanceTable
+          <>
+            <div className="card">
+              {viewMode === 'table' ? (
+                <PerformanceTable
+                  athleteId={selectedAthlete.id}
+                  referenceGroup={referenceGroup}
+                  metric={selectedMetric}
+                />
+              ) : (
+                <PerformanceGraph
+                  athleteId={selectedAthlete.id}
+                  referenceGroup={referenceGroup}
+                  metric={selectedMetric}
+                />
+              )}
+            </div>
+
+            {/* Z-Score Radar Chart */}
+            <div className="card">
+              <ZScoreRadar
                 athleteId={selectedAthlete.id}
                 referenceGroup={referenceGroup}
               />
-            ) : (
-              <PerformanceGraph
-                athleteId={selectedAthlete.id}
-                referenceGroup={referenceGroup}
-              />
-            )}
-          </div>
+            </div>
+          </>
         ) : (
           <div className="card text-center py-8 md:py-12">
             <p className="text-white/60">Select an athlete to view performance data</p>
