@@ -20,6 +20,7 @@ interface PerformanceGraphProps {
   athleteId: string;
   referenceGroup: ReferenceGroup;
   metric: string;
+  athleteGender: 'male' | 'female';
 }
 
 interface ChartDataPoint {
@@ -34,8 +35,10 @@ export function PerformanceGraph({
   athleteId,
   referenceGroup,
   metric,
+  athleteGender,
 }: PerformanceGraphProps) {
   const [data, setData] = useState<ChartDataPoint[]>([]);
+  const [latestMass, setLatestMass] = useState<number | null>(null);
   const [benchmarks, setBenchmarks] = useState<Benchmarks | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,22 +49,22 @@ export function PerformanceGraph({
   const [customTo, setCustomTo] = useState('');
   const [excludedDates, setExcludedDates] = useState<Set<string>>(new Set());
 
+  // Load events (only when athlete or metric changes)
   useEffect(() => {
-    loadData();
-  }, [athleteId, referenceGroup, metric]);
+    loadEvents();
+  }, [athleteId, metric]);
 
-  async function loadData() {
+  // Load benchmarks (when reference group, gender, mass, or metric changes)
+  useEffect(() => {
+    loadBenchmarks();
+  }, [athleteId, metric, referenceGroup, athleteGender, latestMass]);
+
+  async function loadEvents() {
     try {
       setIsLoading(true);
       setError(null);
 
-      const [events, benchmarkData] = await Promise.all([
-        eventsApi.listForAthlete(athleteId),
-        analysisApi.getBenchmarks({
-          metric,
-          referenceGroup,
-        }).catch(() => null),
-      ]);
+      const events = await eventsApi.listForAthlete(athleteId);
 
       const chartData: ChartDataPoint[] = events
         .map((event) => ({
@@ -72,13 +75,40 @@ export function PerformanceGraph({
         .filter((d) => d.value !== null)
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
+      // Extract latest body mass for mass_band reference
+      const eventsWithMass = events
+        .filter((e) => e.metrics.body_mass_kg != null)
+        .sort((a, b) => new Date(b.event_date).getTime() - new Date(a.event_date).getTime());
+      setLatestMass(eventsWithMass.length > 0 ? Number(eventsWithMass[0].metrics.body_mass_kg) : null);
+
       setData(chartData);
-      setBenchmarks(benchmarkData);
     } catch (err) {
       setError('Failed to load graph data');
       console.error(err);
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function loadBenchmarks() {
+    try {
+      const params: {
+        metric: string;
+        referenceGroup: typeof referenceGroup;
+        gender?: 'male' | 'female';
+        massBand?: string;
+      } = { metric, referenceGroup };
+
+      if (referenceGroup === 'gender') {
+        params.gender = athleteGender;
+      } else if (referenceGroup === 'mass_band' && latestMass !== null) {
+        params.massBand = getMassBand(latestMass);
+      }
+
+      const benchmarkData = await analysisApi.getBenchmarks(params).catch(() => null);
+      setBenchmarks(benchmarkData);
+    } catch {
+      setBenchmarks(null);
     }
   }
 
@@ -119,7 +149,7 @@ export function PerformanceGraph({
     [filteredData, excludedDates]
   );
 
-  // Reset excluded dates when filtered data changes
+  // Reset excluded dates when underlying events or date filter changes (NOT reference group)
   useEffect(() => {
     setExcludedDates(new Set());
   }, [data, datePreset, customFrom, customTo]);
@@ -164,7 +194,7 @@ export function PerformanceGraph({
     return (
       <div className="text-center py-8">
         <p className="text-red-400">{error}</p>
-        <button onClick={loadData} className="btn-secondary mt-4">
+        <button onClick={loadEvents} className="btn-secondary mt-4">
           Retry
         </button>
       </div>
@@ -398,4 +428,10 @@ function formatDate(dateStr: string): string {
     month: 'short',
     year: '2-digit',
   });
+}
+
+function getMassBand(mass: number): string {
+  const lower = Math.floor(mass / 5) * 5;
+  const upper = lower + 4.9;
+  return `${lower}-${upper}kg`;
 }

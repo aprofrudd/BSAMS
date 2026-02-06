@@ -76,6 +76,7 @@ export default function Dashboard() {
                   athleteId={selectedAthlete.id}
                   referenceGroup={referenceGroup}
                   metric={selectedMetric}
+                  athleteGender={selectedAthlete.gender}
                 />
               )}
             </div>

@@ -13,10 +13,10 @@ interface MetricSelectorProps {
 const METRIC_LABELS: Record<string, string> = {
   height_cm: 'CMJ Height (cm)',
   sj_height_cm: 'SJ Height (cm)',
-  eur: 'EUR',
-  rsi: 'RSI',
-  rsi_flight: 'RSI (Flight)',
-  rsi_contact: 'RSI (Contact)',
+  eur: 'Eccentric Utilisation Ratio (cm)',
+  rsi: 'Reactive Strength Index',
+  rsi_flight: 'Flight Time (ms)',
+  rsi_contact: 'Contact Time (ms)',
 };
 
 export function getMetricLabel(key: string): string {
