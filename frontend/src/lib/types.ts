@@ -74,6 +74,7 @@ export interface PerformanceRow {
   bodyMass: number | null;
   value: number | null;
   zScore: number | null;
+  groupMean: number | null;
 }
 
 // Upload types
