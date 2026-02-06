@@ -11,11 +11,13 @@ interface CsvPreviewTableProps {
 }
 
 const METRIC_LABELS: Record<string, string> = {
-  height_cm: 'Height (cm)',
+  height_cm: 'CMJ Height (cm)',
+  sj_height_cm: 'SJ Height (cm)',
   body_mass_kg: 'Mass (kg)',
-  rsi: 'RSI',
+  eur_cm: 'Eccentric Utilisation Ratio (cm)',
+  rsi: 'Reactive Strength Index',
   flight_time_ms: 'Flight Time (ms)',
-  contraction_time_ms: 'Contraction Time (ms)',
+  contraction_time_ms: 'Contact Time (ms)',
 };
 
 export function CsvPreviewTable({ events }: CsvPreviewTableProps) {
