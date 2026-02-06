@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Boxing Science Athlete Management System (BSAMS) - A commercial SaaS for high-performance athlete management. Supports CMJ, SJ, EUR, and RSI analysis. Multi-tenant: external coaches manage own athletes, benchmark against Boxing Science data, and optionally share anonymised data.
 
-**Status:** All 4 phases complete + Security hardened + Multi-metric dashboard + Inline CRUD + Multi-tenant - Production deployed
+**Status:** All 4 phases complete + Security hardened + Multi-metric dashboard + Inline CRUD + Multi-tenant + Production hardened (Tier 1-3) - Production deployed
 
 ## Tech Stack
 
@@ -22,7 +22,7 @@ Boxing Science Athlete Management System (BSAMS) - A commercial SaaS for high-pe
 cd backend
 pip install -r requirements.txt
 python -m uvicorn app.main:app --reload  # Dev server
-pytest -v                                 # Run all tests (226)
+pytest -v                                 # Run all tests (254)
 pytest tests/test_stat_engine.py -v      # Run specific test file
 ```
 
@@ -47,10 +47,12 @@ npm test         # Run tests
 
 ### Auth & Roles
 - JWT in HttpOnly/Secure/SameSite=Lax cookies (NOT localStorage)
+- **Auth response returns only `user_id` and `email`** — no `access_token` in response body (token only in HttpOnly cookie)
 - `AuthenticatedUser` dataclass: `id: UUID`, `role: str` ("admin" or "coach")
 - `get_current_user()` returns `AuthenticatedUser` (not UUID)
 - All routers use `current_user.id` for queries, `current_user.role` for access control
 - `/auth/me` returns `{user_id, role}` — frontend fetches role after login
+- **401 interceptor:** Frontend `fetchApi` detects 401 on non-auth endpoints, fires `onAuthError` event to clear user state and redirect to login
 - Auto-profile creation: `_ensure_profile_exists()` runs on signup AND login (select+insert, never upsert to avoid overwriting admin roles)
 - Tests use `app.dependency_overrides[get_current_user]`, conftest has `admin_client` fixture
 
@@ -121,7 +123,7 @@ Dark mode default with high-contrast white text. Mobile-first (iPad priority).
 4. **Date parsing:** Strictly DD/MM/YYYY format
 5. **Auto-create athletes:** CSV upload auto-creates athlete records when names not found in DB
 6. **Trailing slash proxy:** `skipTrailingSlashRedirect: true` + regex rewrite in next.config.js to prevent Vercel/FastAPI redirect loops
-7. **Rate limiting:** slowapi middleware (5/min auth, 10/min uploads, 60/min general)
+7. **Rate limiting:** slowapi middleware (5/min auth, 10/min uploads, 30/min admin, 60/min general)
 8. **CSV limits:** 10MB file size, 10,000 row maximum
 9. **Batch inserts:** CSV events inserted in single bulk operation with individual fallback
 10. **Multi-metric dashboard:** MetricSelector reads available metrics dynamically from backend, refreshes via `dataVersion` counter after data mutations
@@ -136,10 +138,19 @@ Dark mode default with high-contrast white text. Mobile-first (iPad priority).
 19. **Service role key:** Backend MUST use Supabase service_role key (not anon) to bypass RLS for server-side queries
 20. **Auto-profile creation:** Profiles created on signup/login via select+insert (never upsert, to avoid overwriting admin roles)
 21. **Admin data filtering:** Shared data view filters consents in Python (not DB) and excludes admin accounts from results
+22. **Metrics validation on input only:** `validate_metrics()` checks allowed keys, numeric types, and ranges on `PerformanceEventCreate`/`Update` — NOT on `Response` (DB may contain legacy keys)
+23. **Error sanitization:** Global exception handler returns generic 500 in production, detailed errors in development. `ENVIRONMENT` config var controls behavior.
+24. **Request logging:** Middleware logs method, path, status code, and duration (ms) for every request. `LOG_LEVEL` config var controls verbosity.
+25. **DB health check:** `/health` endpoint pings Supabase with a simple query, returns 503 if unreachable
+26. **Sync endpoints:** All non-auth router endpoints use `def` (not `async def`) so FastAPI runs them in threadpool — avoids blocking event loop with sync Supabase client. Auth endpoints kept `async` for rate limiter compatibility.
+27. **Multi-worker:** Procfile uses `--workers ${WEB_CONCURRENCY:-2}` for concurrent request handling
+28. **Focus trapping:** All modals use `useFocusTrap` hook for accessibility (Tab/Shift+Tab cycling, Escape to close, focus restore)
+29. **Pinned dependencies:** `requirements.txt` uses exact versions (e.g., `fastapi==0.128.2`) to prevent breaking changes
+30. **Admin N+1 fix:** Shared athletes endpoint uses single `.in_()` query instead of per-coach `.eq()` loop
 
 ## API Endpoints
 
-- `/health` - Health check
+- `/health` - Health check (pings DB, returns 503 if unreachable)
 - `/api/v1/auth/signup` - User signup (sets HttpOnly cookie, auto-creates profile)
 - `/api/v1/auth/login` - User login (sets HttpOnly cookie, ensures profile exists)
 - `/api/v1/auth/logout` - User logout (clears cookie)
@@ -173,7 +184,7 @@ Dark mode default with high-contrast white text. Mobile-first (iPad priority).
 ### Testing Requirements
 - All bug fixes must have a corresponding test
 - Run full test suite before committing: `python -m pytest tests/ -v`
-- Tests are located in `backend/tests/` (226 total)
+- Tests are located in `backend/tests/` (254 total)
 - Tests use dependency override in conftest.py (not DEV_MODE)
 - All statistical calculations require pytest unit tests
 - Test edge cases: SD=0, division by zero, mass outside known bands
@@ -186,5 +197,5 @@ Dark mode default with high-contrast white text. Mobile-first (iPad priority).
 - **Frontend:** Vercel (https://frontend-two-alpha-72.vercel.app)
 - **CI/CD:** GitHub Actions runs pytest on push to main
 - **Vercel env:** `NEXT_PUBLIC_API_URL` must be set cleanly (no trailing `\n`)
-- **Railway env:** `FRONTEND_URL` must be set for CORS, `COOKIE_SECURE=true` for HttpOnly cookies, `SUPABASE_KEY` must be the **service_role (secret)** key (not anon)
+- **Railway env:** `FRONTEND_URL` must be set for CORS, `COOKIE_SECURE=true` for HttpOnly cookies, `SUPABASE_KEY` must be the **service_role (secret)** key (not anon), `ENVIRONMENT` (default "production"), `LOG_LEVEL` (default "INFO"), `WEB_CONCURRENCY` (default 2, number of uvicorn workers)
 - **Supabase:** Profiles auto-created on signup/login. Migrations `004_add_indexes.sql` and `005_create_coach_consents_table.sql` must be run on Supabase SQL editor. RLS INSERT policy on profiles table required.
