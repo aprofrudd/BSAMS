@@ -71,7 +71,18 @@ async def list_shared_athletes(
     if not consents.data:
         return []
 
-    opted_in_coach_ids = [c["coach_id"] for c in consents.data]
+    # Exclude admin users — only show external coaches' data
+    admin_profiles = (
+        client.table("profiles")
+        .select("id")
+        .eq("role", "admin")
+        .execute()
+    )
+    admin_ids = {p["id"] for p in (admin_profiles.data or [])}
+    opted_in_coach_ids = [c["coach_id"] for c in consents.data if c["coach_id"] not in admin_ids]
+
+    if not opted_in_coach_ids:
+        return []
 
     # Get athletes from opted-in coaches
     all_athletes = []
