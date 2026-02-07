@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/lib/auth';
+import { AthleteProvider } from '@/lib/contexts/AthleteContext';
 import { AppHeader } from '@/components/AppHeader';
 
 export const metadata: Metadata = {
@@ -22,10 +23,12 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen">
         <AuthProvider>
-          <AppHeader />
-          <main className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
-            {children}
-          </main>
+          <AthleteProvider>
+            <AppHeader />
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+              {children}
+            </main>
+          </AthleteProvider>
         </AuthProvider>
       </body>
     </html>

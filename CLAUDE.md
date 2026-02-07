@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Boxing Science Athlete Management System (BSAMS) - A commercial SaaS for high-performance athlete management. Supports CMJ, SJ, EUR, and RSI analysis. Multi-tenant: external coaches manage own athletes, benchmark against Boxing Science data, and optionally share anonymised data.
 
-**Status:** All 4 phases complete + Security hardened + Multi-metric dashboard + Inline CRUD + Multi-tenant + Production hardened (Tier 1-3) - Production deployed
+**Status:** All 4 phases complete + Security hardened + Multi-metric dashboard + Inline CRUD + Multi-tenant + Production hardened (Tier 1-3) + Testing/Training restructure (8 phases) - Production deployed
 
 ## Tech Stack
 
@@ -22,7 +22,7 @@ Boxing Science Athlete Management System (BSAMS) - A commercial SaaS for high-pe
 cd backend
 pip install -r requirements.txt
 python -m uvicorn app.main:app --reload  # Dev server
-pytest -v                                 # Run all tests (254)
+pytest -v                                 # Run all tests (338)
 pytest tests/test_stat_engine.py -v      # Run specific test file
 ```
 
@@ -44,6 +44,9 @@ npm test         # Run tests
 - RLS policies on tables (backend bypasses via service_role key)
 - `profiles` table required (FK from `athletes.coach_id`), auto-created on signup/login
 - `coach_consents` table tracks data sharing opt-in per coach
+- `training_sessions` table: session logging with `srpe` generated column (rpe * duration_minutes)
+- `wellness_entries` table: daily questionnaire (5 scores 1-5), UNIQUE(athlete_id, entry_date)
+- `exercise_prescriptions` table: FK to training_sessions with CASCADE delete
 
 ### Auth & Roles
 - JWT in HttpOnly/Secure/SameSite=Lax cookies (NOT localStorage)
@@ -59,9 +62,9 @@ npm test         # Run tests
 ### Backend Structure
 ```
 backend/app/
-├── routers/     # API endpoints (auth, athletes, events, uploads, analysis, consent, admin)
-├── services/    # Business logic (csv_ingestion, stat_engine, benchmarks, admin_pool)
-├── schemas/     # Pydantic models (athlete, event, auth, upload, enums, consent)
+├── routers/     # API endpoints (auth, athletes, events, uploads, analysis, consent, admin, training, exercises, wellness)
+├── services/    # Business logic (csv_ingestion, stat_engine, benchmarks, admin_pool, training_load)
+├── schemas/     # Pydantic models (athlete, event, auth, upload, enums, consent, training_session, wellness, exercise_prescription, metric_registry)
 └── core/        # Config, Supabase client, security (JWT validation)
 ```
 
@@ -70,6 +73,7 @@ backend/app/
 - **Ingestion:** CSV parsing with DD/MM/YYYY date format, BOM handling, First Name + Surname support, auto-creates athletes on upload
 - **Mass Banding:** 5kg increments calculated at query time (e.g., 70-74.9kg)
 - **AdminPool:** `get_admin_athletes(client)` queries profiles for role='admin', returns their athletes for Boxing Science benchmark pool
+- **TrainingLoadEngine:** sRPE, Monotony (mean/SD over 7 days), Strain (weekly load × monotony), ACWR (7d/28d rolling average). Optimal ACWR 0.8-1.3, danger >1.5
 
 ### Multi-Tenant System
 - **Roles:** admin (Boxing Science) and coach (external). Default role on signup: "coach"
@@ -95,12 +99,34 @@ backend/app/
 | `flight_time_ms` | Flight Time (ms) |
 | `contraction_time_ms` | Contact Time (ms) |
 
+### Route Structure
+- `/` → redirects to `/testing`
+- `/testing` — Testing dashboard (CMJ, SJ, EUR, RSI analysis)
+- `/training` — Training page (sessions, wellness, load analysis, exercises)
+- `/upload` — CSV upload
+- `/login` — Authentication
+- AppHeader uses data-driven `NAV_ITEMS` array with `matchPaths` for active state highlighting
+
+### Shared Athlete Context
+- `AthleteContext` (`frontend/src/lib/contexts/AthleteContext.tsx`) provides `selectedAthlete` across pages
+- `AthleteProvider` wraps app in layout.tsx (inside AuthProvider)
+- Athlete selection persists when navigating between Testing and Training
+
 ### Frontend Structure
 ```
 frontend/
-├── app/         # Next.js pages (dashboard, login, upload)
-├── components/  # AppHeader, AthleteCreateModal, AthleteEditModal, AthleteSelector, CsvPreviewTable, DataSharingConsent, DataViewControls, EventFormModal, MetricSelector, MetricBarChart, PerformanceGraph, PerformanceTable, SharedDataView, ZScoreRadar
-└── lib/         # API client, auth context, hooks, utils
+├── app/
+│   ├── testing/     # Testing dashboard (formerly root page)
+│   ├── training/    # Training sessions, wellness, load analysis
+│   ├── upload/      # CSV upload
+│   └── login/       # Authentication
+├── components/
+│   ├── training/    # SessionLogForm, SessionTable, WellnessForm, WellnessChart, LoadChart, ReadinessIndicator, ExerciseTable
+│   └── ...          # AppHeader, AthleteCreateModal, AthleteEditModal, AthleteSelector, CsvPreviewTable, DataSharingConsent, DataViewControls, EventFormModal, MetricSelector, MetricBarChart, PerformanceGraph, PerformanceTable, SharedDataView, ZScoreRadar
+└── lib/
+    ├── contexts/    # AthleteContext
+    ├── metricRegistry.ts  # Central metric definitions (mirrors backend)
+    └── ...          # API client, auth context, hooks, utils
 ```
 
 ## Design System
@@ -147,6 +173,15 @@ Dark mode default with high-contrast white text. Mobile-first (iPad priority).
 28. **Focus trapping:** All modals use `useFocusTrap` hook for accessibility (Tab/Shift+Tab cycling, Escape to close, focus restore)
 29. **Pinned dependencies:** `requirements.txt` uses exact versions (e.g., `fastapi==0.128.2`) to prevent breaking changes
 30. **Admin N+1 fix:** Shared athletes endpoint uses single `.in_()` query instead of per-coach `.eq()` loop
+31. **Route restructure:** Dashboard renamed to Testing, new Training section. Root `/` redirects to `/testing`
+32. **Shared athlete context:** `AthleteContext` provides `selectedAthlete` across Testing and Training pages
+33. **Training sessions:** Session logging with RPE, duration, computed sRPE (generated column). Free-text training types
+34. **Wellness questionnaire:** 5 scores (1-5) with UNIQUE(athlete_id, entry_date). 409 on duplicate date
+35. **Training load analysis:** TrainingLoadEngine calculates daily load, weekly load, monotony, strain, ACWR from sRPE data
+36. **Readiness indicator:** Traffic light combining ACWR zones + latest wellness scores (inverts fatigue/soreness/stress)
+37. **Exercise prescriptions:** Nested under training sessions (FK with CASCADE). Sets, reps, weight, tempo, rest, duration, distance
+38. **Metric registry:** Central source of truth for metric definitions (`metric_registry.py` backend, `metricRegistry.ts` frontend). Replaces scattered METRIC_LABELS/ALLOWED_METRIC_KEYS
+39. **Data-driven navigation:** `NAV_ITEMS` array in AppHeader with `matchPaths` for active state. Adding sections requires no component changes
 
 ## API Endpoints
 
@@ -164,6 +199,12 @@ Dark mode default with high-contrast white text. Mobile-first (iPad priority).
 - `/api/v1/analysis/athlete/{id}/zscores` - Bulk Z-scores for all events (accepts benchmark_source)
 - `/api/v1/analysis/athlete/{id}/metrics` - Available metric keys
 - `/api/v1/consent/` - GET/PUT data sharing consent (coaches only)
+- `/api/v1/training/sessions/` - Training session CRUD (POST/GET/PATCH/DELETE)
+- `/api/v1/training/sessions/athlete/{id}` - List sessions for athlete (paginated)
+- `/api/v1/training/sessions/{id}/exercises/` - Exercise prescription CRUD (nested under session)
+- `/api/v1/training/analysis/load/{id}` - Training load analysis (sRPE, Monotony, Strain, ACWR)
+- `/api/v1/wellness/` - Wellness entry CRUD (POST/GET/PATCH/DELETE)
+- `/api/v1/wellness/athlete/{id}` - List wellness entries for athlete
 - `/api/v1/admin/shared-athletes` - Anonymised athletes from opted-in coaches (admin only)
 - `/api/v1/admin/shared-athletes/{id}/events` - Events for shared athlete (admin only)
 
@@ -184,7 +225,7 @@ Dark mode default with high-contrast white text. Mobile-first (iPad priority).
 ### Testing Requirements
 - All bug fixes must have a corresponding test
 - Run full test suite before committing: `python -m pytest tests/ -v`
-- Tests are located in `backend/tests/` (254 total)
+- Tests are located in `backend/tests/` (338 total)
 - Tests use dependency override in conftest.py (not DEV_MODE)
 - All statistical calculations require pytest unit tests
 - Test edge cases: SD=0, division by zero, mass outside known bands
@@ -198,4 +239,4 @@ Dark mode default with high-contrast white text. Mobile-first (iPad priority).
 - **CI/CD:** GitHub Actions runs pytest on push to main
 - **Vercel env:** `NEXT_PUBLIC_API_URL` must be set cleanly (no trailing `\n`)
 - **Railway env:** `FRONTEND_URL` must be set for CORS, `COOKIE_SECURE=true` for HttpOnly cookies, `SUPABASE_KEY` must be the **service_role (secret)** key (not anon), `ENVIRONMENT` (default "production"), `LOG_LEVEL` (default "INFO"), `WEB_CONCURRENCY` (default 2, number of uvicorn workers)
-- **Supabase:** Profiles auto-created on signup/login. Migrations `004_add_indexes.sql` and `005_create_coach_consents_table.sql` must be run on Supabase SQL editor. RLS INSERT policy on profiles table required.
+- **Supabase:** Profiles auto-created on signup/login. Migrations `004`-`008` must be run on Supabase SQL editor (006: training_sessions, 007: wellness_entries, 008: exercise_prescriptions). RLS INSERT policy on profiles table required.

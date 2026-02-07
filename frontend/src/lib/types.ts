@@ -91,6 +91,137 @@ export interface PerformanceRow {
   groupMean: number | null;
 }
 
+// Training Session types
+export interface TrainingSession {
+  id: string;
+  athlete_id: string;
+  session_date: string;
+  training_type: string;
+  duration_minutes: number;
+  rpe: number;
+  srpe: number;
+  notes: string | null;
+  metrics: Record<string, string | number | undefined>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TrainingSessionCreate {
+  athlete_id: string;
+  session_date: string;
+  training_type: string;
+  duration_minutes: number;
+  rpe: number;
+  notes?: string;
+  metrics?: Record<string, string | number | undefined>;
+}
+
+export interface TrainingSessionUpdate {
+  session_date?: string;
+  training_type?: string;
+  duration_minutes?: number;
+  rpe?: number;
+  notes?: string;
+  metrics?: Record<string, string | number | undefined>;
+}
+
+// Exercise Prescription types
+export interface ExercisePrescription {
+  id: string;
+  session_id: string;
+  exercise_name: string;
+  exercise_category: string | null;
+  set_number: number;
+  reps: number | null;
+  weight_kg: number | null;
+  tempo: string | null;
+  rest_seconds: number | null;
+  duration_seconds: number | null;
+  distance_meters: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExercisePrescriptionCreate {
+  exercise_name: string;
+  exercise_category?: string;
+  set_number: number;
+  reps?: number;
+  weight_kg?: number;
+  tempo?: string;
+  rest_seconds?: number;
+  duration_seconds?: number;
+  distance_meters?: number;
+  notes?: string;
+}
+
+export interface ExercisePrescriptionUpdate {
+  exercise_name?: string;
+  exercise_category?: string;
+  set_number?: number;
+  reps?: number;
+  weight_kg?: number;
+  tempo?: string;
+  rest_seconds?: number;
+  duration_seconds?: number;
+  distance_meters?: number;
+  notes?: string;
+}
+
+// Training Load Analysis types
+export interface DailyLoadData {
+  date: string;
+  total_srpe: number;
+  session_count: number;
+}
+
+export interface TrainingLoadAnalysis {
+  daily_loads: DailyLoadData[];
+  weekly_load: number | null;
+  monotony: number | null;
+  strain: number | null;
+  acwr: number | null;
+  acute_load: number | null;
+  chronic_load: number | null;
+}
+
+// Wellness types
+export interface WellnessEntry {
+  id: string;
+  athlete_id: string;
+  entry_date: string;
+  sleep_quality: number;
+  fatigue: number;
+  soreness: number;
+  stress: number;
+  mood: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WellnessEntryCreate {
+  athlete_id: string;
+  entry_date: string;
+  sleep_quality: number;
+  fatigue: number;
+  soreness: number;
+  stress: number;
+  mood: number;
+  notes?: string;
+}
+
+export interface WellnessEntryUpdate {
+  entry_date?: string;
+  sleep_quality?: number;
+  fatigue?: number;
+  soreness?: number;
+  stress?: number;
+  mood?: number;
+  notes?: string;
+}
+
 // Upload types
 export interface UploadResult {
   processed: number;

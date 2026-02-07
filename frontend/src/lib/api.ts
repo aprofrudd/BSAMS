@@ -10,6 +10,16 @@ import type {
   ZScoreResult,
   ReferenceGroup,
   UploadResult,
+  TrainingSession,
+  TrainingSessionCreate,
+  TrainingSessionUpdate,
+  TrainingLoadAnalysis,
+  ExercisePrescription,
+  ExercisePrescriptionCreate,
+  ExercisePrescriptionUpdate,
+  WellnessEntry,
+  WellnessEntryCreate,
+  WellnessEntryUpdate,
 } from './types';
 
 const API_BASE = '/api/v1';
@@ -256,6 +266,100 @@ export const uploadApi = {
 
     return response.json();
   },
+};
+
+// Training API
+export const trainingApi = {
+  listSessions: (
+    athleteId: string,
+    options?: { startDate?: string; endDate?: string }
+  ) => {
+    const params = new URLSearchParams();
+    if (options?.startDate) params.set('start_date', options.startDate);
+    if (options?.endDate) params.set('end_date', options.endDate);
+    const query = params.toString();
+    return fetchApi<TrainingSession[]>(
+      `/training/sessions/athlete/${athleteId}${query ? `?${query}` : ''}`
+    );
+  },
+
+  getSession: (id: string) =>
+    fetchApi<TrainingSession>(`/training/sessions/${id}`),
+
+  createSession: (data: TrainingSessionCreate) =>
+    fetchApi<TrainingSession>('/training/sessions/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateSession: (id: string, data: TrainingSessionUpdate) =>
+    fetchApi<TrainingSession>(`/training/sessions/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  deleteSession: (id: string) =>
+    fetchApi<void>(`/training/sessions/${id}`, { method: 'DELETE' }),
+
+  getLoadAnalysis: (athleteId: string, days: number = 28) =>
+    fetchApi<TrainingLoadAnalysis>(`/training/analysis/load/${athleteId}?days=${days}`),
+};
+
+// Exercises API
+export const exercisesApi = {
+  list: (sessionId: string) =>
+    fetchApi<ExercisePrescription[]>(`/training/sessions/${sessionId}/exercises/`),
+
+  create: (sessionId: string, data: ExercisePrescriptionCreate) =>
+    fetchApi<ExercisePrescription>(`/training/sessions/${sessionId}/exercises/`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: (sessionId: string, exerciseId: string, data: ExercisePrescriptionUpdate) =>
+    fetchApi<ExercisePrescription>(`/training/sessions/${sessionId}/exercises/${exerciseId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  delete: (sessionId: string, exerciseId: string) =>
+    fetchApi<void>(`/training/sessions/${sessionId}/exercises/${exerciseId}`, {
+      method: 'DELETE',
+    }),
+};
+
+// Wellness API
+export const wellnessApi = {
+  listEntries: (
+    athleteId: string,
+    options?: { startDate?: string; endDate?: string }
+  ) => {
+    const params = new URLSearchParams();
+    if (options?.startDate) params.set('start_date', options.startDate);
+    if (options?.endDate) params.set('end_date', options.endDate);
+    const query = params.toString();
+    return fetchApi<WellnessEntry[]>(
+      `/wellness/athlete/${athleteId}${query ? `?${query}` : ''}`
+    );
+  },
+
+  getEntry: (id: string) =>
+    fetchApi<WellnessEntry>(`/wellness/${id}`),
+
+  createEntry: (data: WellnessEntryCreate) =>
+    fetchApi<WellnessEntry>('/wellness/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateEntry: (id: string, data: WellnessEntryUpdate) =>
+    fetchApi<WellnessEntry>(`/wellness/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  deleteEntry: (id: string) =>
+    fetchApi<void>(`/wellness/${id}`, { method: 'DELETE' }),
 };
 
 // Admin API

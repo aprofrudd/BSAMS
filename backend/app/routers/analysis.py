@@ -10,11 +10,9 @@ from pydantic import BaseModel
 from app.core.security import AuthenticatedUser, get_current_user
 from app.core.supabase_client import get_supabase_client
 from app.schemas.enums import Gender
+from app.schemas.metric_registry import NON_METRIC_KEYS
 from app.services.admin_pool import get_admin_athletes, get_opted_in_athletes
 from app.services.stat_engine import StatEngine
-
-# Keys that are metadata, not actual performance metrics
-NON_METRIC_KEYS = {"test_type", "body_mass_kg"}
 
 router = APIRouter(prefix="/analysis", tags=["analysis"])
 

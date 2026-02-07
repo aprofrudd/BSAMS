@@ -4,6 +4,18 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 
+interface NavItem {
+  label: string;
+  href: string;
+  matchPaths: string[];
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { label: 'Testing', href: '/testing', matchPaths: ['/testing', '/'] },
+  { label: 'Training', href: '/training', matchPaths: ['/training'] },
+  { label: 'Upload', href: '/upload', matchPaths: ['/upload'] },
+];
+
 export function AppHeader() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
@@ -15,26 +27,22 @@ export function AppHeader() {
         <nav className="flex items-center gap-4">
           {user ? (
             <>
-              <Link
-                href="/"
-                className={`text-sm transition-colors ${
-                  pathname === '/'
-                    ? 'text-accent'
-                    : 'text-white/60 hover:text-white'
-                }`}
-              >
-                Dashboard
-              </Link>
-              <Link
-                href="/upload"
-                className={`text-sm transition-colors ${
-                  pathname === '/upload'
-                    ? 'text-accent'
-                    : 'text-white/60 hover:text-white'
-                }`}
-              >
-                Upload
-              </Link>
+              {NAV_ITEMS.map((item) => {
+                const isActive = item.matchPaths.includes(pathname);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`text-sm transition-colors ${
+                      isActive
+                        ? 'text-accent'
+                        : 'text-white/60 hover:text-white'
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
               <span className="text-white/60 text-sm hidden sm:inline">
                 {user.email}
               </span>

@@ -6,17 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-# Allowed metric keys and their reasonable ranges (min, max)
-ALLOWED_METRIC_KEYS: Dict[str, tuple] = {
-    "test_type": (None, None),  # String value, not numeric
-    "body_mass_kg": (0, 500),
-    "height_cm": (0, 200),
-    "sj_height_cm": (0, 200),
-    "eur_cm": (-100, 200),
-    "rsi": (0, 50),
-    "flight_time_ms": (0, 2000),
-    "contraction_time_ms": (0, 2000),
-}
+from app.schemas.metric_registry import ALLOWED_METRIC_KEYS
 
 
 def validate_metrics(metrics: Dict[str, Any]) -> Dict[str, Any]:

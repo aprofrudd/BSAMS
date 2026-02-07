@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { analysisApi } from '@/lib/api';
+import { getMetricLabel } from '@/lib/metricRegistry';
+
+export { getMetricLabel };
 
 interface MetricSelectorProps {
   athleteId: string;
@@ -9,19 +12,6 @@ interface MetricSelectorProps {
   onMetricChange: (metric: string) => void;
   disabled?: boolean;
   dataVersion?: number;
-}
-
-const METRIC_LABELS: Record<string, string> = {
-  height_cm: 'CMJ Height (cm)',
-  sj_height_cm: 'SJ Height (cm)',
-  eur_cm: 'Eccentric Utilisation Ratio (cm)',
-  rsi: 'Reactive Strength Index',
-  flight_time_ms: 'Flight Time (ms)',
-  contraction_time_ms: 'Contact Time (ms)',
-};
-
-export function getMetricLabel(key: string): string {
-  return METRIC_LABELS[key] || key;
 }
 
 export function MetricSelector({

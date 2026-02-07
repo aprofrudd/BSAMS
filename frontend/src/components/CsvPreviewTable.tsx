@@ -1,5 +1,7 @@
 'use client';
 
+import { getMetricLabel } from '@/lib/metricRegistry';
+
 interface PreviewEvent {
   event_date: string;
   metrics: Record<string, string | number | undefined>;
@@ -9,16 +11,6 @@ interface PreviewEvent {
 interface CsvPreviewTableProps {
   events: PreviewEvent[];
 }
-
-const METRIC_LABELS: Record<string, string> = {
-  height_cm: 'CMJ Height (cm)',
-  sj_height_cm: 'SJ Height (cm)',
-  body_mass_kg: 'Mass (kg)',
-  eur_cm: 'Eccentric Utilisation Ratio (cm)',
-  rsi: 'Reactive Strength Index',
-  flight_time_ms: 'Flight Time (ms)',
-  contraction_time_ms: 'Contact Time (ms)',
-};
 
 export function CsvPreviewTable({ events }: CsvPreviewTableProps) {
   if (events.length === 0) return null;
@@ -54,7 +46,7 @@ export function CsvPreviewTable({ events }: CsvPreviewTableProps) {
             )}
             {metricKeys.map((key) => (
               <th key={key} className="text-right text-white/60 font-medium py-2 px-3">
-                {METRIC_LABELS[key] || key}
+                {getMetricLabel(key)}
               </th>
             ))}
           </tr>
