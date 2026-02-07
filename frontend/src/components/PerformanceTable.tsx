@@ -55,10 +55,12 @@ export function PerformanceTable({
     loadData();
   }, [athleteId, referenceGroup, metric, benchmarkSource]);
 
-  async function loadData() {
+  async function loadData(retryCount = 0) {
     try {
-      setIsLoading(true);
-      setError(null);
+      if (retryCount === 0) {
+        setIsLoading(true);
+        setError(null);
+      }
 
       // Fetch events and bulk Z-scores in parallel
       const [events, zScores] = await Promise.all([
@@ -87,10 +89,15 @@ export function PerformanceTable({
       });
 
       setRows(rowsWithZScores);
+      setIsLoading(false);
     } catch (err) {
+      if (retryCount === 0) {
+        console.warn('Performance data load failed, retrying...', err);
+        setTimeout(() => loadData(1), 1000);
+        return;
+      }
       setError('Failed to load performance data');
-      console.error(err);
-    } finally {
+      console.error('Performance data load failed after retry:', err);
       setIsLoading(false);
     }
   }
@@ -139,7 +146,7 @@ export function PerformanceTable({
     return (
       <div className="text-center py-8">
         <p className="text-red-400">{error}</p>
-        <button onClick={loadData} className="btn-secondary mt-4">
+        <button onClick={() => loadData()} className="btn-secondary mt-4">
           Retry
         </button>
       </div>

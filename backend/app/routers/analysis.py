@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from app.core.security import AuthenticatedUser, get_current_user
 from app.core.supabase_client import get_supabase_client
 from app.schemas.enums import Gender
-from app.services.admin_pool import get_admin_athletes
+from app.services.admin_pool import get_admin_athletes, get_opted_in_athletes
 from app.services.stat_engine import StatEngine
 
 # Keys that are metadata, not actual performance metrics
@@ -32,6 +32,7 @@ class BenchmarkSource(str, Enum):
 
     OWN = "own"  # Coach's own athletes
     BOXING_SCIENCE = "boxing_science"  # Admin users' data pool
+    SHARED_POOL = "shared_pool"  # Opted-in coaches' pooled data (admin only)
 
 
 class BenchmarkResponse(BaseModel):
@@ -99,9 +100,19 @@ def get_benchmarks(
             detail="Mass band parameter required when reference_group=mass_band",
         )
 
+    # Guard: only admins can use boxing_science or shared_pool sources
+    if benchmark_source in (BenchmarkSource.BOXING_SCIENCE, BenchmarkSource.SHARED_POOL):
+        if current_user.role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin access required for this benchmark source",
+            )
+
     # Get reference athletes based on benchmark source
     if benchmark_source == BenchmarkSource.BOXING_SCIENCE:
         athletes_data = get_admin_athletes(client)
+    elif benchmark_source == BenchmarkSource.SHARED_POOL:
+        athletes_data = get_opted_in_athletes(client)
     else:
         athletes_result = (
             client.table("athletes")
@@ -289,9 +300,19 @@ def get_athlete_zscore(
             )
         mass_band_filter = StatEngine.get_mass_band(athlete_mass)
 
+    # Guard: only admins can use boxing_science or shared_pool sources
+    if benchmark_source in (BenchmarkSource.BOXING_SCIENCE, BenchmarkSource.SHARED_POOL):
+        if current_user.role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin access required for this benchmark source",
+            )
+
     # Get benchmarks for the reference group
     if benchmark_source == BenchmarkSource.BOXING_SCIENCE:
         ref_athletes_data = get_admin_athletes(client)
+    elif benchmark_source == BenchmarkSource.SHARED_POOL:
+        ref_athletes_data = get_opted_in_athletes(client)
     else:
         athletes_query = (
             client.table("athletes")
@@ -303,8 +324,8 @@ def get_athlete_zscore(
         athletes_result = athletes_query.execute()
         ref_athletes_data = athletes_result.data if athletes_result.data else []
 
-    # Apply gender filter for boxing_science source
-    if benchmark_source == BenchmarkSource.BOXING_SCIENCE and gender_filter:
+    # Apply gender filter for non-own sources
+    if benchmark_source in (BenchmarkSource.BOXING_SCIENCE, BenchmarkSource.SHARED_POOL) and gender_filter:
         ref_athletes_data = [a for a in ref_athletes_data if a.get("gender") == gender_filter.value]
 
     if not ref_athletes_data:
@@ -430,6 +451,14 @@ def get_athlete_zscores_bulk(
     if not athlete_events.data:
         return {}
 
+    # Guard: only admins can use boxing_science or shared_pool sources
+    if benchmark_source in (BenchmarkSource.BOXING_SCIENCE, BenchmarkSource.SHARED_POOL):
+        if current_user.role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin access required for this benchmark source",
+            )
+
     # Build reference group
     gender_filter = None
     if reference_group == ReferenceGroup.GENDER:
@@ -437,6 +466,10 @@ def get_athlete_zscores_bulk(
 
     if benchmark_source == BenchmarkSource.BOXING_SCIENCE:
         ref_athletes_data = get_admin_athletes(client)
+        if gender_filter:
+            ref_athletes_data = [a for a in ref_athletes_data if a.get("gender") == gender_filter.value]
+    elif benchmark_source == BenchmarkSource.SHARED_POOL:
+        ref_athletes_data = get_opted_in_athletes(client)
         if gender_filter:
             ref_athletes_data = [a for a in ref_athletes_data if a.get("gender") == gender_filter.value]
     else:

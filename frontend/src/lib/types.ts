@@ -76,7 +76,7 @@ export interface ZScoreResult {
 }
 
 // Benchmark source types
-export type BenchmarkSource = 'own' | 'boxing_science';
+export type BenchmarkSource = 'own' | 'boxing_science' | 'shared_pool';
 
 // UI types
 export type ViewMode = 'table' | 'graph';

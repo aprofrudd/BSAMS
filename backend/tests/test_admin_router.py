@@ -111,7 +111,7 @@ class TestGetSharedAthleteEvents:
             if name == "athletes":
                 m.select.return_value.eq.return_value.execute.return_value = mock_athlete
             elif name == "coach_consents":
-                m.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_consent
+                m.select.return_value.eq.return_value.execute.return_value = mock_consent
             elif name == "performance_events":
                 m.select.return_value.eq.return_value.order.return_value.range.return_value.execute.return_value = mock_events
             return m
@@ -143,7 +143,34 @@ class TestGetSharedAthleteEvents:
             if name == "athletes":
                 m.select.return_value.eq.return_value.execute.return_value = mock_athlete
             elif name == "coach_consents":
-                m.select.return_value.eq.return_value.eq.return_value.execute.return_value = mock_consent
+                m.select.return_value.eq.return_value.execute.return_value = mock_consent
+            return m
+
+        mock_client.table.side_effect = table_dispatch
+
+        with patch("app.routers.admin.get_supabase_client", return_value=mock_client):
+            response = admin_client.get(
+                "/api/v1/admin/shared-athletes/00000000-0000-0000-0000-000000000001/events"
+            )
+
+        assert response.status_code == 403
+
+    def test_admin_gets_403_when_consent_is_false(self, admin_client):
+        """Admin should get 403 when consent exists but data_sharing_enabled is False."""
+        mock_athlete = MagicMock()
+        mock_athlete.data = [{"coach_id": "coach-1"}]
+
+        mock_consent = MagicMock()
+        mock_consent.data = [{"data_sharing_enabled": False}]
+
+        mock_client = MagicMock()
+
+        def table_dispatch(name):
+            m = MagicMock()
+            if name == "athletes":
+                m.select.return_value.eq.return_value.execute.return_value = mock_athlete
+            elif name == "coach_consents":
+                m.select.return_value.eq.return_value.execute.return_value = mock_consent
             return m
 
         mock_client.table.side_effect = table_dispatch

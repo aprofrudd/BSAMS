@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock
 
-from app.services.admin_pool import get_admin_athlete_ids, get_admin_athletes
+from app.services.admin_pool import get_admin_athlete_ids, get_admin_athletes, get_opted_in_athletes
 
 
 class TestGetAdminAthleteIds:
@@ -103,4 +103,100 @@ class TestGetAdminAthletes:
         result = get_admin_athletes(mock_client)
         assert len(result) == 2
         assert result[0]["gender"] == "male"
+        assert result[1]["gender"] == "female"
+
+
+class TestGetOptedInAthletes:
+    """Test get_opted_in_athletes function."""
+
+    def test_returns_empty_when_no_consents(self):
+        """Should return empty list when no consents exist."""
+        mock_client = MagicMock()
+        mock_consents = MagicMock()
+        mock_consents.data = []
+        mock_client.table.return_value.select.return_value.execute.return_value = mock_consents
+
+        result = get_opted_in_athletes(mock_client)
+        assert result == []
+
+    def test_returns_empty_when_all_consents_false(self):
+        """Should return empty list when all consents are False."""
+        mock_client = MagicMock()
+
+        mock_consents = MagicMock()
+        mock_consents.data = [
+            {"coach_id": "coach-1", "data_sharing_enabled": False},
+            {"coach_id": "coach-2", "data_sharing_enabled": False},
+        ]
+
+        def table_dispatch(name):
+            m = MagicMock()
+            if name == "coach_consents":
+                m.select.return_value.execute.return_value = mock_consents
+            return m
+
+        mock_client.table.side_effect = table_dispatch
+
+        result = get_opted_in_athletes(mock_client)
+        assert result == []
+
+    def test_excludes_admin_coaches(self):
+        """Should exclude admin accounts from opted-in coaches."""
+        mock_client = MagicMock()
+
+        mock_consents = MagicMock()
+        mock_consents.data = [
+            {"coach_id": "admin-1", "data_sharing_enabled": True},
+        ]
+
+        mock_admin_profiles = MagicMock()
+        mock_admin_profiles.data = [{"id": "admin-1"}]
+
+        def table_dispatch(name):
+            m = MagicMock()
+            if name == "coach_consents":
+                m.select.return_value.execute.return_value = mock_consents
+            elif name == "profiles":
+                m.select.return_value.eq.return_value.execute.return_value = mock_admin_profiles
+            return m
+
+        mock_client.table.side_effect = table_dispatch
+
+        result = get_opted_in_athletes(mock_client)
+        assert result == []
+
+    def test_returns_opted_in_athletes(self):
+        """Should return athletes from opted-in non-admin coaches."""
+        mock_client = MagicMock()
+
+        mock_consents = MagicMock()
+        mock_consents.data = [
+            {"coach_id": "coach-1", "data_sharing_enabled": True},
+            {"coach_id": "coach-2", "data_sharing_enabled": False},
+        ]
+
+        mock_admin_profiles = MagicMock()
+        mock_admin_profiles.data = [{"id": "admin-1"}]
+
+        mock_athletes = MagicMock()
+        mock_athletes.data = [
+            {"id": "athlete-1", "gender": "male"},
+            {"id": "athlete-2", "gender": "female"},
+        ]
+
+        def table_dispatch(name):
+            m = MagicMock()
+            if name == "coach_consents":
+                m.select.return_value.execute.return_value = mock_consents
+            elif name == "profiles":
+                m.select.return_value.eq.return_value.execute.return_value = mock_admin_profiles
+            elif name == "athletes":
+                m.select.return_value.in_.return_value.execute.return_value = mock_athletes
+            return m
+
+        mock_client.table.side_effect = table_dispatch
+
+        result = get_opted_in_athletes(mock_client)
+        assert len(result) == 2
+        assert result[0]["id"] == "athlete-1"
         assert result[1]["gender"] == "female"

@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests.conftest import TEST_ADMIN_ID, TEST_USER_ID
 
 client = TestClient(app)
 
@@ -497,3 +498,111 @@ class TestGetAthleteMetrics:
             response = client.get(f"/api/v1/analysis/athlete/{uuid4()}/metrics")
 
         assert response.status_code == 503
+
+
+class TestBenchmarkSourceAccess:
+    """Test access control for benchmark_source parameter."""
+
+    def test_coach_gets_403_for_boxing_science(self, mock_supabase):
+        """Coaches should get 403 when requesting boxing_science benchmarks."""
+        response = client.get(
+            "/api/v1/analysis/benchmarks",
+            params={"metric": "height_cm", "benchmark_source": "boxing_science"},
+        )
+        assert response.status_code == 403
+        assert "Admin access required" in response.json()["detail"]
+
+    def test_coach_gets_403_for_shared_pool(self, mock_supabase):
+        """Coaches should get 403 when requesting shared_pool benchmarks."""
+        response = client.get(
+            "/api/v1/analysis/benchmarks",
+            params={"metric": "height_cm", "benchmark_source": "shared_pool"},
+        )
+        assert response.status_code == 403
+        assert "Admin access required" in response.json()["detail"]
+
+    def test_admin_can_use_shared_pool(self, mock_supabase, sample_athletes, sample_events, admin_client):
+        """Admin should be able to use shared_pool benchmark source."""
+        mock_consents = MagicMock()
+        mock_consents.data = [{"coach_id": "coach-1", "data_sharing_enabled": True}]
+
+        mock_admin_profiles = MagicMock()
+        mock_admin_profiles.data = [{"id": str(TEST_ADMIN_ID)}]
+
+        mock_athletes = MagicMock()
+        mock_athletes.data = sample_athletes
+
+        mock_events_result = MagicMock()
+        mock_events_result.data = sample_events
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "coach_consents":
+                mock_table.select.return_value.execute.return_value = mock_consents
+            elif table_name == "profiles":
+                mock_table.select.return_value.eq.return_value.execute.return_value = mock_admin_profiles
+            elif table_name == "athletes":
+                mock_table.select.return_value.in_.return_value.execute.return_value = mock_athletes
+            elif table_name == "performance_events":
+                mock_table.select.return_value.in_.return_value.execute.return_value = mock_events_result
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
+
+        response = admin_client.get(
+            "/api/v1/analysis/benchmarks",
+            params={"metric": "height_cm", "benchmark_source": "shared_pool"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["count"] == 5
+        assert data["mean"] == 45.0
+
+    def test_coach_gets_403_for_shared_pool_zscore(self, mock_supabase, sample_athletes):
+        """Coaches should get 403 when requesting shared_pool Z-score."""
+        athlete_id = sample_athletes[0]["id"]
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "athletes":
+                mock_table.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = [
+                    sample_athletes[0]
+                ]
+            else:
+                mock_table.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value.data = [
+                    {"metrics": {"height_cm": 47.0}}
+                ]
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
+
+        response = client.get(
+            f"/api/v1/analysis/athlete/{athlete_id}/zscore",
+            params={"metric": "height_cm", "benchmark_source": "shared_pool"},
+        )
+        assert response.status_code == 403
+
+    def test_coach_gets_403_for_shared_pool_zscores_bulk(self, mock_supabase, sample_athletes):
+        """Coaches should get 403 when requesting shared_pool bulk Z-scores."""
+        athlete_id = sample_athletes[0]["id"]
+
+        def table_side_effect(table_name):
+            mock_table = MagicMock()
+            if table_name == "athletes":
+                mock_table.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = [
+                    sample_athletes[0]
+                ]
+            else:
+                mock_table.select.return_value.eq.return_value.execute.return_value.data = [
+                    {"id": str(uuid4()), "metrics": {"height_cm": 45.0}}
+                ]
+            return mock_table
+
+        mock_supabase.table.side_effect = table_side_effect
+
+        response = client.get(
+            f"/api/v1/analysis/athlete/{athlete_id}/zscores",
+            params={"metric": "height_cm", "benchmark_source": "shared_pool"},
+        )
+        assert response.status_code == 403

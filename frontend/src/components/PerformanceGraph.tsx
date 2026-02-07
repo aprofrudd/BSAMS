@@ -61,10 +61,12 @@ export function PerformanceGraph({
     loadBenchmarks();
   }, [athleteId, metric, referenceGroup, athleteGender, latestMass, benchmarkSource]);
 
-  async function loadEvents() {
+  async function loadEvents(retryCount = 0) {
     try {
-      setIsLoading(true);
-      setError(null);
+      if (retryCount === 0) {
+        setIsLoading(true);
+        setError(null);
+      }
 
       const events = await eventsApi.listForAthlete(athleteId);
 
@@ -84,10 +86,15 @@ export function PerformanceGraph({
       setLatestMass(eventsWithMass.length > 0 ? Number(eventsWithMass[0].metrics.body_mass_kg) : null);
 
       setData(chartData);
+      setIsLoading(false);
     } catch (err) {
+      if (retryCount === 0) {
+        console.warn('Graph data load failed, retrying...', err);
+        setTimeout(() => loadEvents(1), 1000);
+        return;
+      }
       setError('Failed to load graph data');
-      console.error(err);
-    } finally {
+      console.error('Graph data load failed after retry:', err);
       setIsLoading(false);
     }
   }
@@ -197,7 +204,7 @@ export function PerformanceGraph({
     return (
       <div className="text-center py-8">
         <p className="text-red-400">{error}</p>
-        <button onClick={loadEvents} className="btn-secondary mt-4">
+        <button onClick={() => loadEvents()} className="btn-secondary mt-4">
           Retry
         </button>
       </div>

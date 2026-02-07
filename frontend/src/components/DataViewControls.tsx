@@ -68,8 +68,8 @@ export function DataViewControls({
           </select>
         </div>
 
-        {/* Benchmark Source Toggle (coaches only) */}
-        {role !== 'admin' && benchmarkSource && onBenchmarkSourceChange && (
+        {/* Benchmark Source Toggle (admin only) */}
+        {role === 'admin' && benchmarkSource && onBenchmarkSourceChange && (
           <div className="w-full sm:w-auto">
             <label className="block text-sm text-white/60 mb-1">Benchmark Source</label>
             <div className="flex rounded-lg overflow-hidden border border-secondary-muted">
@@ -83,6 +83,17 @@ export function DataViewControls({
                 }`}
               >
                 Boxing Science
+              </button>
+              <button
+                onClick={() => onBenchmarkSourceChange('shared_pool')}
+                disabled={disabled}
+                className={`px-3 py-2 text-sm font-medium transition-colors ${
+                  benchmarkSource === 'shared_pool'
+                    ? 'bg-accent text-primary'
+                    : 'bg-primary-dark text-white hover:bg-secondary-muted'
+                }`}
+              >
+                Shared Pool
               </button>
               <button
                 onClick={() => onBenchmarkSourceChange('own')}

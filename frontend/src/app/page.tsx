@@ -20,7 +20,7 @@ export default function Dashboard() {
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [selectedMetric, setSelectedMetric] = useState<string>('height_cm');
   const [showRadar, setShowRadar] = useState(false);
-  const [benchmarkSource, setBenchmarkSource] = useState<BenchmarkSource>('boxing_science');
+  const [benchmarkSource, setBenchmarkSource] = useState<BenchmarkSource>('own');
   const [adminTab, setAdminTab] = useState<'my_athletes' | 'shared_data'>('my_athletes');
   const [dataVersion, setDataVersion] = useState(0);
 
@@ -29,13 +29,6 @@ export default function Dashboard() {
       router.replace('/login');
     }
   }, [loading, user, router]);
-
-  // Set correct default benchmarkSource once user role is known
-  useEffect(() => {
-    if (user?.role === 'admin') {
-      setBenchmarkSource('own');
-    }
-  }, [user?.role]);
 
   useEffect(() => {
     setShowRadar(false);

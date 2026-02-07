@@ -156,16 +156,18 @@ def get_shared_athlete_events(
 
     coach_id = athlete.data[0]["coach_id"]
 
-    # Check consent
+    # Check consent (filter in Python — .eq() on booleans unreliable with supabase-py)
     consent = (
         client.table("coach_consents")
         .select("data_sharing_enabled")
         .eq("coach_id", coach_id)
-        .eq("data_sharing_enabled", True)
         .execute()
     )
 
-    if not consent.data:
+    opted_in = any(
+        c.get("data_sharing_enabled") is True for c in (consent.data or [])
+    )
+    if not opted_in:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Coach has not opted in to data sharing",
