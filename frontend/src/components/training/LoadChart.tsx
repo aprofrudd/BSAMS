@@ -105,37 +105,57 @@ export function LoadChart({ athleteId, dataVersion }: LoadChartProps) {
 
       {/* Daily Load Bar Chart */}
       <div className="overflow-x-auto">
-        <div className="flex items-end gap-0.5 min-w-fit h-32">
-          {analysis.daily_loads.map((dl) => {
-            const height = maxLoad > 0 ? (dl.total_srpe / maxLoad) * 100 : 0;
-            return (
-              <div
-                key={dl.date}
-                className="flex flex-col items-center"
-                style={{ minWidth: '20px' }}
-              >
-                <div
-                  className="w-4 rounded-t-sm bg-accent/70 hover:bg-accent transition-colors"
-                  style={{ height: `${height}%`, minHeight: dl.total_srpe > 0 ? '2px' : '0' }}
-                  title={`${formatDate(dl.date)}: ${dl.total_srpe} sRPE (${dl.session_count} session${dl.session_count !== 1 ? 's' : ''})`}
-                />
+        <div className="flex">
+          {/* Y-axis labels */}
+          <div className="flex flex-col justify-between h-32 pr-2 shrink-0">
+            <span className="text-[10px] text-white/40 leading-none">{maxLoad}</span>
+            <span className="text-[10px] text-white/40 leading-none">{Math.round(maxLoad / 2)}</span>
+            <span className="text-[10px] text-white/40 leading-none">0</span>
+          </div>
+          {/* Bars */}
+          <div className="flex-1 min-w-0">
+            <div className="relative h-32">
+              {/* Grid lines */}
+              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                <div className="border-t border-white/10" />
+                <div className="border-t border-white/10" />
+                <div className="border-t border-white/10" />
               </div>
-            );
-          })}
-        </div>
-        <div className="flex gap-0.5 mt-1">
-          {analysis.daily_loads.map((dl, i) => (
-            <div
-              key={dl.date}
-              className="text-center"
-              style={{ minWidth: '20px' }}
-            >
-              {i % 7 === 0 && (
-                <span className="text-[9px] text-white/40">{formatDate(dl.date)}</span>
-              )}
+              <div className="flex items-end gap-0.5 min-w-fit h-full relative">
+                {analysis.daily_loads.map((dl) => {
+                  const height = maxLoad > 0 ? (dl.total_srpe / maxLoad) * 100 : 0;
+                  return (
+                    <div
+                      key={dl.date}
+                      className="flex flex-col items-center"
+                      style={{ minWidth: '20px' }}
+                    >
+                      <div
+                        className="w-4 rounded-t-sm bg-accent/70 hover:bg-accent transition-colors"
+                        style={{ height: `${height}%`, minHeight: dl.total_srpe > 0 ? '2px' : '0' }}
+                        title={`${formatDate(dl.date)}: ${dl.total_srpe} sRPE (${dl.session_count} session${dl.session_count !== 1 ? 's' : ''})`}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          ))}
+            <div className="flex gap-0.5 mt-1">
+              {analysis.daily_loads.map((dl, i) => (
+                <div
+                  key={dl.date}
+                  className="text-center"
+                  style={{ minWidth: '20px' }}
+                >
+                  {i % 7 === 0 && (
+                    <span className="text-[9px] text-white/40">{formatDate(dl.date)}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
+        <div className="text-[10px] text-white/40 text-center mt-1">sRPE (Daily Load)</div>
       </div>
 
       {/* Acute/Chronic Info */}
