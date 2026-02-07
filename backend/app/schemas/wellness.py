@@ -1,4 +1,13 @@
-"""Wellness entry schemas."""
+"""Wellness entry schemas using the Validated Hooper Index (Hooper et al., 1995).
+
+Four subjective measures on a 1-7 scale:
+  - sleep (1=very very good, 7=very very bad)
+  - fatigue (1=very very low, 7=very very high)
+  - stress (1=very very low, 7=very very high)
+  - doms (1=very very low, 7=very very high)
+
+Hooper Index = sleep + fatigue + stress + doms (range 4-28, lower is better).
+"""
 
 from datetime import date, datetime
 from typing import Optional
@@ -12,11 +21,10 @@ class WellnessEntryCreate(BaseModel):
 
     athlete_id: UUID
     entry_date: date
-    sleep_quality: int = Field(..., ge=1, le=5)
-    fatigue: int = Field(..., ge=1, le=5)
-    soreness: int = Field(..., ge=1, le=5)
-    stress: int = Field(..., ge=1, le=5)
-    mood: int = Field(..., ge=1, le=5)
+    sleep: int = Field(..., ge=1, le=7)
+    fatigue: int = Field(..., ge=1, le=7)
+    stress: int = Field(..., ge=1, le=7)
+    doms: int = Field(..., ge=1, le=7)
     notes: Optional[str] = Field(None, max_length=1000)
 
 
@@ -24,11 +32,10 @@ class WellnessEntryUpdate(BaseModel):
     """Schema for updating a wellness entry."""
 
     entry_date: Optional[date] = None
-    sleep_quality: Optional[int] = Field(None, ge=1, le=5)
-    fatigue: Optional[int] = Field(None, ge=1, le=5)
-    soreness: Optional[int] = Field(None, ge=1, le=5)
-    stress: Optional[int] = Field(None, ge=1, le=5)
-    mood: Optional[int] = Field(None, ge=1, le=5)
+    sleep: Optional[int] = Field(None, ge=1, le=7)
+    fatigue: Optional[int] = Field(None, ge=1, le=7)
+    stress: Optional[int] = Field(None, ge=1, le=7)
+    doms: Optional[int] = Field(None, ge=1, le=7)
     notes: Optional[str] = Field(None, max_length=1000)
 
 
@@ -38,11 +45,11 @@ class WellnessEntryResponse(BaseModel):
     id: UUID
     athlete_id: UUID
     entry_date: date
-    sleep_quality: int
+    sleep: int
     fatigue: int
-    soreness: int
     stress: int
-    mood: int
+    doms: int
+    hooper_index: int
     notes: Optional[str] = None
     created_at: datetime
     updated_at: datetime

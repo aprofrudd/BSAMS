@@ -186,16 +186,16 @@ export interface TrainingLoadAnalysis {
   chronic_load: number | null;
 }
 
-// Wellness types
+// Wellness types (Validated Hooper Index)
 export interface WellnessEntry {
   id: string;
   athlete_id: string;
   entry_date: string;
-  sleep_quality: number;
+  sleep: number;
   fatigue: number;
-  soreness: number;
   stress: number;
-  mood: number;
+  doms: number;
+  hooper_index: number;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -204,21 +204,19 @@ export interface WellnessEntry {
 export interface WellnessEntryCreate {
   athlete_id: string;
   entry_date: string;
-  sleep_quality: number;
+  sleep: number;
   fatigue: number;
-  soreness: number;
   stress: number;
-  mood: number;
+  doms: number;
   notes?: string;
 }
 
 export interface WellnessEntryUpdate {
   entry_date?: string;
-  sleep_quality?: number;
+  sleep?: number;
   fatigue?: number;
-  soreness?: number;
   stress?: number;
-  mood?: number;
+  doms?: number;
   notes?: string;
 }
 

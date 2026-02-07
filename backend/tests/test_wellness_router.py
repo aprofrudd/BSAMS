@@ -1,4 +1,4 @@
-"""Tests for wellness entries router."""
+"""Tests for wellness entries router (Validated Hooper Index)."""
 
 from datetime import datetime
 from unittest.mock import MagicMock, patch
@@ -29,16 +29,16 @@ def sample_athlete_id():
 
 @pytest.fixture
 def sample_wellness_data(sample_athlete_id):
-    """Sample wellness entry data for tests."""
+    """Sample wellness entry data for tests (Hooper Index)."""
     return {
         "id": str(uuid4()),
         "athlete_id": sample_athlete_id,
         "entry_date": "2024-01-15",
-        "sleep_quality": 4,
-        "fatigue": 3,
-        "soreness": 2,
+        "sleep": 3,
+        "fatigue": 4,
         "stress": 2,
-        "mood": 4,
+        "doms": 3,
+        "hooper_index": 12,
         "notes": "Feeling good",
         "created_at": datetime.now().isoformat(),
         "updated_at": datetime.now().isoformat(),
@@ -70,20 +70,20 @@ class TestCreateWellnessEntry:
             json={
                 "athlete_id": sample_athlete_id,
                 "entry_date": "2024-01-15",
-                "sleep_quality": 4,
-                "fatigue": 3,
-                "soreness": 2,
+                "sleep": 3,
+                "fatigue": 4,
                 "stress": 2,
-                "mood": 4,
+                "doms": 3,
                 "notes": "Feeling good",
             },
         )
 
         assert response.status_code == 201
         data = response.json()
-        assert data["sleep_quality"] == 4
-        assert data["fatigue"] == 3
-        assert data["mood"] == 4
+        assert data["sleep"] == 3
+        assert data["fatigue"] == 4
+        assert data["doms"] == 3
+        assert data["hooper_index"] == 12
 
     def test_create_entry_athlete_not_found(self, mock_supabase, sample_athlete_id):
         """Should return 404 when athlete not found."""
@@ -102,28 +102,26 @@ class TestCreateWellnessEntry:
             json={
                 "athlete_id": sample_athlete_id,
                 "entry_date": "2024-01-15",
-                "sleep_quality": 4,
-                "fatigue": 3,
-                "soreness": 2,
+                "sleep": 3,
+                "fatigue": 4,
                 "stress": 2,
-                "mood": 4,
+                "doms": 3,
             },
         )
 
         assert response.status_code == 404
 
     def test_create_entry_invalid_score_too_high(self):
-        """Should return 422 for score above 5."""
+        """Should return 422 for score above 7."""
         response = client.post(
             "/api/v1/wellness/",
             json={
                 "athlete_id": str(uuid4()),
                 "entry_date": "2024-01-15",
-                "sleep_quality": 6,
+                "sleep": 8,
                 "fatigue": 3,
-                "soreness": 2,
                 "stress": 2,
-                "mood": 4,
+                "doms": 3,
             },
         )
         assert response.status_code == 422
@@ -135,11 +133,10 @@ class TestCreateWellnessEntry:
             json={
                 "athlete_id": str(uuid4()),
                 "entry_date": "2024-01-15",
-                "sleep_quality": 0,
+                "sleep": 0,
                 "fatigue": 3,
-                "soreness": 2,
                 "stress": 2,
-                "mood": 4,
+                "doms": 3,
             },
         )
         assert response.status_code == 422
@@ -152,11 +149,10 @@ class TestCreateWellnessEntry:
                 json={
                     "athlete_id": str(uuid4()),
                     "entry_date": "2024-01-15",
-                    "sleep_quality": 4,
-                    "fatigue": 3,
-                    "soreness": 2,
+                    "sleep": 3,
+                    "fatigue": 4,
                     "stress": 2,
-                    "mood": 4,
+                    "doms": 3,
                 },
             )
         assert response.status_code == 503
@@ -183,11 +179,10 @@ class TestCreateWellnessEntry:
             json={
                 "athlete_id": sample_athlete_id,
                 "entry_date": "2024-01-15",
-                "sleep_quality": 4,
-                "fatigue": 3,
-                "soreness": 2,
+                "sleep": 3,
+                "fatigue": 4,
                 "stress": 2,
-                "mood": 4,
+                "doms": 3,
             },
         )
 
@@ -218,7 +213,8 @@ class TestListWellnessEntries:
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 1
-        assert data[0]["sleep_quality"] == 4
+        assert data[0]["sleep"] == 3
+        assert data[0]["hooper_index"] == 12
 
     def test_list_entries_athlete_not_found(self, mock_supabase, sample_athlete_id):
         """Should return 404 when athlete not found."""
@@ -267,7 +263,7 @@ class TestGetWellnessEntry:
         response = client.get(f"/api/v1/wellness/{sample_wellness_data['id']}")
 
         assert response.status_code == 200
-        assert response.json()["sleep_quality"] == 4
+        assert response.json()["sleep"] == 3
 
     def test_get_entry_not_found(self, mock_supabase):
         """Should return 404 when entry not found."""
@@ -305,7 +301,7 @@ class TestUpdateWellnessEntry:
         mock_eq2.eq.return_value = mock_eq3
         mock_eq3.execute.return_value.data = [{"id": sample_athlete_id}]
 
-        updated_data = {**sample_wellness_data, "sleep_quality": 5}
+        updated_data = {**sample_wellness_data, "sleep": 5, "hooper_index": 14}
         mock_update = MagicMock()
         mock_table.update.return_value = mock_update
         mock_update_eq = MagicMock()
@@ -314,7 +310,7 @@ class TestUpdateWellnessEntry:
 
         response = client.patch(
             f"/api/v1/wellness/{sample_wellness_data['id']}",
-            json={"sleep_quality": 5},
+            json={"sleep": 5},
         )
 
         assert response.status_code == 200
@@ -331,7 +327,7 @@ class TestUpdateWellnessEntry:
 
         response = client.patch(
             f"/api/v1/wellness/{uuid4()}",
-            json={"sleep_quality": 5},
+            json={"sleep": 5},
         )
 
         assert response.status_code == 404
@@ -409,30 +405,46 @@ class TestDeleteWellnessEntry:
 
 
 class TestWellnessValidation:
-    """Test schema validation for wellness entries."""
+    """Test schema validation for Hooper Index wellness entries."""
 
     def test_all_scores_at_boundaries(self):
-        """All scores at min (1) and max (5) should be accepted."""
+        """All scores at min (1) and max (7) should be accepted."""
         from app.schemas.wellness import WellnessEntryCreate
 
         entry = WellnessEntryCreate(
             athlete_id=uuid4(),
             entry_date="2024-01-15",
-            sleep_quality=1,
+            sleep=1,
             fatigue=1,
-            soreness=1,
             stress=1,
-            mood=1,
+            doms=1,
         )
-        assert entry.sleep_quality == 1
+        assert entry.sleep == 1
 
         entry2 = WellnessEntryCreate(
             athlete_id=uuid4(),
             entry_date="2024-01-15",
-            sleep_quality=5,
-            fatigue=5,
-            soreness=5,
-            stress=5,
-            mood=5,
+            sleep=7,
+            fatigue=7,
+            stress=7,
+            doms=7,
         )
-        assert entry2.mood == 5
+        assert entry2.doms == 7
+
+    def test_hooper_index_range(self):
+        """Hooper Index response should include computed index."""
+        from app.schemas.wellness import WellnessEntryResponse
+
+        resp = WellnessEntryResponse(
+            id=uuid4(),
+            athlete_id=uuid4(),
+            entry_date="2024-01-15",
+            sleep=2,
+            fatigue=3,
+            stress=4,
+            doms=5,
+            hooper_index=14,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
+        assert resp.hooper_index == 14

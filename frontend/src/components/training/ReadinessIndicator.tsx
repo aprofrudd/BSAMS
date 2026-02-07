@@ -27,21 +27,13 @@ function getReadinessLevel(
     else score += 1; // Moderate
   }
 
-  // Wellness scoring (average of all 5 dimensions)
+  // Wellness scoring using Hooper Index (4-28, lower is better)
   if (latestWellness) {
     factors++;
-    // For fatigue, soreness, stress: lower is better (invert score)
-    // For sleep_quality, mood: higher is better
-    const wellnessScore =
-      latestWellness.sleep_quality +
-      (6 - latestWellness.fatigue) +
-      (6 - latestWellness.soreness) +
-      (6 - latestWellness.stress) +
-      latestWellness.mood;
-    // Range: 5-25, midpoint 15
-    if (wellnessScore >= 18) score += 2;
-    else if (wellnessScore >= 12) score += 1;
-    else score += 0;
+    const hi = latestWellness.hooper_index;
+    if (hi <= 10) score += 2;       // Good recovery
+    else if (hi <= 16) score += 1;  // Moderate
+    else score += 0;                // Poor recovery
   }
 
   if (factors === 0) return 'unknown';

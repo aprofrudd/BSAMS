@@ -55,11 +55,10 @@ def create_wellness_entry(
     data = {
         "athlete_id": str(entry.athlete_id),
         "entry_date": entry.entry_date.isoformat(),
-        "sleep_quality": entry.sleep_quality,
+        "sleep": entry.sleep,
         "fatigue": entry.fatigue,
-        "soreness": entry.soreness,
         "stress": entry.stress,
-        "mood": entry.mood,
+        "doms": entry.doms,
         "notes": entry.notes,
     }
 

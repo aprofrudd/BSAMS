@@ -9,17 +9,22 @@ interface WellnessChartProps {
   athleteId: string;
 }
 
-const WELLNESS_KEYS = [
-  { key: 'sleep_quality', label: 'Sleep', color: '#33CBF4' },
+const HOOPER_KEYS = [
+  { key: 'sleep', label: 'Sleep', color: '#33CBF4' },
   { key: 'fatigue', label: 'Fatigue', color: '#ef4444' },
-  { key: 'soreness', label: 'Soreness', color: '#f59e0b' },
   { key: 'stress', label: 'Stress', color: '#a855f7' },
-  { key: 'mood', label: 'Mood', color: '#22c55e' },
+  { key: 'doms', label: 'DOMS', color: '#f59e0b' },
 ];
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00');
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+}
+
+function getHooperColor(index: number): string {
+  if (index <= 10) return 'text-green-400';
+  if (index <= 16) return 'text-yellow-400';
+  return 'text-red-400';
 }
 
 export function WellnessChart({ athleteId }: WellnessChartProps) {
@@ -66,7 +71,7 @@ export function WellnessChart({ athleteId }: WellnessChartProps) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-accent">Wellness</h3>
+        <h3 className="text-lg font-semibold text-accent">Hooper Index</h3>
         <button
           onClick={() => { setEditingEntry(null); setShowForm(true); }}
           className="px-3 py-1.5 rounded text-sm font-medium bg-accent text-[#090A3D] hover:bg-accent/80 transition-colors"
@@ -91,7 +96,7 @@ export function WellnessChart({ athleteId }: WellnessChartProps) {
           {recentEntries.length > 0 && (
             <div className="mb-4">
               <div className="flex gap-3 mb-2 flex-wrap">
-                {WELLNESS_KEYS.map((wk) => (
+                {HOOPER_KEYS.map((wk) => (
                   <div key={wk.key} className="flex items-center gap-1">
                     <div
                       className="w-2.5 h-2.5 rounded-full"
@@ -109,18 +114,18 @@ export function WellnessChart({ athleteId }: WellnessChartProps) {
                       className="flex flex-col items-center gap-0.5 cursor-pointer hover:bg-secondary-muted/20 rounded p-1 transition-colors"
                       onClick={() => { setEditingEntry(entry); setShowForm(true); }}
                     >
-                      {WELLNESS_KEYS.map((wk) => {
+                      {HOOPER_KEYS.map((wk) => {
                         const val = entry[wk.key as keyof WellnessEntry] as number;
                         return (
                           <div
                             key={wk.key}
                             className="w-6 rounded-sm"
                             style={{
-                              height: `${val * 6}px`,
+                              height: `${val * 4}px`,
                               backgroundColor: wk.color,
-                              opacity: 0.3 + (val / 5) * 0.7,
+                              opacity: 0.3 + (val / 7) * 0.7,
                             }}
-                            title={`${wk.label}: ${val}/5`}
+                            title={`${wk.label}: ${val}/7`}
                           />
                         );
                       })}
@@ -142,9 +147,9 @@ export function WellnessChart({ athleteId }: WellnessChartProps) {
                   <th className="text-left py-2 px-2">Date</th>
                   <th className="text-center py-2 px-1">Sleep</th>
                   <th className="text-center py-2 px-1">Fatigue</th>
-                  <th className="text-center py-2 px-1">Soreness</th>
                   <th className="text-center py-2 px-1">Stress</th>
-                  <th className="text-center py-2 px-1">Mood</th>
+                  <th className="text-center py-2 px-1">DOMS</th>
+                  <th className="text-center py-2 px-1">HI</th>
                   <th className="text-right py-2 px-2">Actions</th>
                 </tr>
               </thead>
@@ -157,11 +162,13 @@ export function WellnessChart({ athleteId }: WellnessChartProps) {
                     <td className="py-2 px-2 whitespace-nowrap">
                       {formatDate(entry.entry_date)}
                     </td>
-                    <td className="py-2 px-1 text-center">{entry.sleep_quality}</td>
+                    <td className="py-2 px-1 text-center">{entry.sleep}</td>
                     <td className="py-2 px-1 text-center">{entry.fatigue}</td>
-                    <td className="py-2 px-1 text-center">{entry.soreness}</td>
                     <td className="py-2 px-1 text-center">{entry.stress}</td>
-                    <td className="py-2 px-1 text-center">{entry.mood}</td>
+                    <td className="py-2 px-1 text-center">{entry.doms}</td>
+                    <td className={`py-2 px-1 text-center font-medium ${getHooperColor(entry.hooper_index)}`}>
+                      {entry.hooper_index}
+                    </td>
                     <td className="py-2 px-2 text-right whitespace-nowrap">
                       <button
                         onClick={() => { setEditingEntry(entry); setShowForm(true); }}

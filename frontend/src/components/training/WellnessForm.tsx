@@ -12,12 +12,11 @@ interface WellnessFormProps {
   onSaved: () => void;
 }
 
-const WELLNESS_FIELDS: { key: string; label: string; lowLabel: string; highLabel: string }[] = [
-  { key: 'sleep_quality', label: 'Sleep Quality', lowLabel: 'Poor', highLabel: 'Excellent' },
-  { key: 'fatigue', label: 'Fatigue', lowLabel: 'Low', highLabel: 'High' },
-  { key: 'soreness', label: 'Soreness', lowLabel: 'Low', highLabel: 'High' },
-  { key: 'stress', label: 'Stress', lowLabel: 'Low', highLabel: 'High' },
-  { key: 'mood', label: 'Mood', lowLabel: 'Poor', highLabel: 'Excellent' },
+const HOOPER_FIELDS: { key: string; label: string; lowLabel: string; highLabel: string }[] = [
+  { key: 'sleep', label: 'Sleep Quality', lowLabel: 'Very Good', highLabel: 'Very Bad' },
+  { key: 'fatigue', label: 'Fatigue', lowLabel: 'Very Low', highLabel: 'Very High' },
+  { key: 'stress', label: 'Stress', lowLabel: 'Very Low', highLabel: 'Very High' },
+  { key: 'doms', label: 'DOMS', lowLabel: 'Very Low', highLabel: 'Very High' },
 ];
 
 function toInputDate(isoDate: string): string {
@@ -39,24 +38,24 @@ export function WellnessForm({
   const [scores, setScores] = useState<Record<string, number>>(() => {
     if (existingEntry) {
       return {
-        sleep_quality: existingEntry.sleep_quality,
+        sleep: existingEntry.sleep,
         fatigue: existingEntry.fatigue,
-        soreness: existingEntry.soreness,
         stress: existingEntry.stress,
-        mood: existingEntry.mood,
+        doms: existingEntry.doms,
       };
     }
     return {
-      sleep_quality: 3,
-      fatigue: 3,
-      soreness: 3,
-      stress: 3,
-      mood: 3,
+      sleep: 1,
+      fatigue: 1,
+      stress: 1,
+      doms: 1,
     };
   });
   const [notes, setNotes] = useState(existingEntry?.notes || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const hooperIndex = scores.sleep + scores.fatigue + scores.stress + scores.doms;
 
   useEffect(() => {
     function handleEscape(e: KeyboardEvent) {
@@ -70,6 +69,12 @@ export function WellnessForm({
     setScores((prev) => ({ ...prev, [key]: value }));
   }
 
+  function getHooperColor(index: number): string {
+    if (index <= 10) return 'text-green-400';
+    if (index <= 16) return 'text-yellow-400';
+    return 'text-red-400';
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -79,22 +84,20 @@ export function WellnessForm({
       if (isEdit && existingEntry) {
         await wellnessApi.updateEntry(existingEntry.id, {
           ...(entryDate ? { entry_date: entryDate } : {}),
-          sleep_quality: scores.sleep_quality,
+          sleep: scores.sleep,
           fatigue: scores.fatigue,
-          soreness: scores.soreness,
           stress: scores.stress,
-          mood: scores.mood,
+          doms: scores.doms,
           notes: notes || undefined,
         });
       } else {
         await wellnessApi.createEntry({
           athlete_id: athleteId,
           entry_date: entryDate,
-          sleep_quality: scores.sleep_quality,
+          sleep: scores.sleep,
           fatigue: scores.fatigue,
-          soreness: scores.soreness,
           stress: scores.stress,
-          mood: scores.mood,
+          doms: scores.doms,
           notes: notes || undefined,
         });
       }
@@ -115,7 +118,7 @@ export function WellnessForm({
     >
       <div ref={focusTrapRef} className="card w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true">
         <h2 className="text-lg font-semibold text-accent mb-4">
-          {isEdit ? 'Edit Wellness' : 'Log Wellness'}
+          {isEdit ? 'Edit Hooper Index' : 'Log Hooper Index'}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -130,18 +133,18 @@ export function WellnessForm({
             />
           </div>
 
-          {WELLNESS_FIELDS.map((field) => (
+          {HOOPER_FIELDS.map((field) => (
             <div key={field.key}>
               <div className="flex justify-between items-center mb-1">
                 <label className="text-sm text-white/60">{field.label}</label>
-                <span className="text-accent text-sm font-medium">{scores[field.key]}/5</span>
+                <span className="text-accent text-sm font-medium">{scores[field.key]}/7</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-white/40 w-16">{field.lowLabel}</span>
                 <input
                   type="range"
                   min="1"
-                  max="5"
+                  max="7"
                   step="1"
                   value={scores[field.key]}
                   onChange={(e) => setScore(field.key, Number(e.target.value))}
@@ -151,6 +154,15 @@ export function WellnessForm({
               </div>
             </div>
           ))}
+
+          {/* Hooper Index display */}
+          <div className="bg-secondary-muted/30 rounded-lg p-3 text-center">
+            <div className="text-xs text-white/60 mb-1">Hooper Index</div>
+            <div className={`text-2xl font-bold ${getHooperColor(hooperIndex)}`}>
+              {hooperIndex}
+            </div>
+            <div className="text-xs text-white/40 mt-1">Range: 4 (best) - 28 (worst)</div>
+          </div>
 
           <div>
             <label className="block text-sm text-white/60 mb-1">Notes (optional)</label>
