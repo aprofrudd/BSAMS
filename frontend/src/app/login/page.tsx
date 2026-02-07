@@ -53,7 +53,7 @@ export default function LoginPage() {
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="card w-full max-w-md">
         <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-accent">BSAMS</h2>
+          <h2 className="section-title text-2xl">BSAMS</h2>
           <p className="text-white/60 text-sm mt-1">
             Boxing Science Athlete Management
           </p>

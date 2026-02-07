@@ -8,6 +8,10 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        heading: ['var(--font-chakra)', 'sans-serif'],
+        body: ['var(--font-roboto)', 'sans-serif'],
+      },
       colors: {
         // BSAMS Design System
         primary: {

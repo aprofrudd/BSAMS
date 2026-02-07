@@ -64,7 +64,7 @@ export function SessionTable({ athleteId }: SessionTableProps) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-accent">Training Sessions</h3>
+        <h3 className="section-title text-base">Training Sessions</h3>
         <button
           onClick={() => { setEditingSession(null); setShowForm(true); }}
           className="px-3 py-1.5 rounded text-sm font-medium bg-accent text-[#090A3D] hover:bg-accent/80 transition-colors"

@@ -155,7 +155,7 @@ export default function UploadPage() {
 
   return (
     <div className="max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold text-accent mb-6">Upload CSV</h1>
+      <h1 className="section-title text-2xl mb-6">Upload CSV</h1>
 
       {error && (
         <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-3 mb-4">

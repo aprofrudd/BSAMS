@@ -113,7 +113,7 @@ export function AthleteSelector({
 
   return (
     <div className="card">
-      <h2 className="text-lg font-semibold mb-4 text-accent">Athletes</h2>
+      <h2 className="section-title text-base mb-4">Athletes</h2>
 
       {/* Search Input */}
       <input

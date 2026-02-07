@@ -69,7 +69,7 @@ export function LoadChart({ athleteId }: LoadChartProps) {
 
   return (
     <div>
-      <h3 className="text-lg font-semibold text-accent mb-4">Training Load</h3>
+      <h3 className="section-title text-base mb-4">Training Load</h3>
 
       {/* Key Metrics Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">

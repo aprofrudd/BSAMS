@@ -117,7 +117,7 @@ export function WellnessForm({
       }}
     >
       <div ref={focusTrapRef} className="card w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true">
-        <h2 className="text-lg font-semibold text-accent mb-4">
+        <h2 className="section-title text-base mb-4">
           {isEdit ? 'Edit Hooper Index' : 'Log Hooper Index'}
         </h2>
 

@@ -60,7 +60,7 @@ export function AthleteEditModal({ athlete, onClose, onSaved }: AthleteEditModal
       }}
     >
       <div ref={focusTrapRef} className="card w-full max-w-sm mx-4" role="dialog" aria-modal="true">
-        <h2 className="text-lg font-semibold text-accent mb-4">Edit Athlete</h2>
+        <h2 className="section-title text-base mb-4">Edit Athlete</h2>
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>

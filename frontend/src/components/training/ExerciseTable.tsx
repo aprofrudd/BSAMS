@@ -104,7 +104,7 @@ export function ExerciseTable({ sessionId, onClose }: ExerciseTableProps) {
     >
       <div ref={focusTrapRef} className="card w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-accent">Exercises</h2>
+          <h2 className="section-title text-base">Exercises</h2>
           <button
             onClick={onClose}
             className="text-white/60 hover:text-white transition-colors"

@@ -65,7 +65,7 @@ export function DataSharingConsent() {
 
   return (
     <div className="card">
-      <h2 className="text-lg font-semibold text-accent mb-3">Data Sharing</h2>
+      <h2 className="section-title text-base mb-3">Data Sharing</h2>
 
       <p className="text-white/60 text-sm mb-4">{infoText}</p>
 
@@ -107,7 +107,7 @@ export function DataSharingConsent() {
           }}
         >
           <div className="card w-full max-w-sm mx-4">
-            <h3 className="text-lg font-semibold text-accent mb-3">Confirm Data Sharing</h3>
+            <h3 className="section-title text-base mb-3">Confirm Data Sharing</h3>
             <p className="text-white/60 text-sm mb-4">{infoText}</p>
             <div className="flex gap-3">
               <button

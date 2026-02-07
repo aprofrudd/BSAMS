@@ -81,7 +81,7 @@ export function SharedDataView() {
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {/* Athlete list */}
       <div className="card md:col-span-1">
-        <h3 className="text-lg font-semibold text-accent mb-3">Shared Athletes</h3>
+        <h3 className="section-title text-base mb-3">Shared Athletes</h3>
         <div className="space-y-2 max-h-[60vh] overflow-y-auto">
           {athletes.map((athlete) => (
             <button
@@ -104,7 +104,7 @@ export function SharedDataView() {
       <div className="card md:col-span-2">
         {selectedAthlete ? (
           <>
-            <h3 className="text-lg font-semibold text-accent mb-3">
+            <h3 className="section-title text-base mb-3">
               {selectedAthlete.anonymous_name} — Events
             </h3>
 
