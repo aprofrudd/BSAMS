@@ -220,6 +220,107 @@ export interface WellnessEntryUpdate {
   notes?: string;
 }
 
+// Exercise Library types
+export interface ExerciseLibraryItem {
+  id: string;
+  coach_id: string;
+  exercise_name: string;
+  exercise_category: string | null;
+  default_reps: number | null;
+  default_weight_kg: number | null;
+  default_tempo: string | null;
+  default_rest_seconds: number | null;
+  default_duration_seconds: number | null;
+  default_distance_meters: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExerciseLibraryCreate {
+  exercise_name: string;
+  exercise_category?: string;
+  default_reps?: number;
+  default_weight_kg?: number;
+  default_tempo?: string;
+  default_rest_seconds?: number;
+  default_duration_seconds?: number;
+  default_distance_meters?: number;
+  notes?: string;
+}
+
+export interface ExerciseLibraryUpdate {
+  exercise_name?: string;
+  exercise_category?: string;
+  default_reps?: number;
+  default_weight_kg?: number;
+  default_tempo?: string;
+  default_rest_seconds?: number;
+  default_duration_seconds?: number;
+  default_distance_meters?: number;
+  notes?: string;
+}
+
+// Session Template types
+export interface TemplateExercise {
+  id: string;
+  template_id: string;
+  exercise_library_id: string | null;
+  exercise_name: string;
+  exercise_category: string | null;
+  order_index: number;
+  sets: number;
+  reps: number | null;
+  weight_kg: number | null;
+  tempo: string | null;
+  rest_seconds: number | null;
+  duration_seconds: number | null;
+  distance_meters: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TemplateExerciseCreate {
+  exercise_library_id?: string;
+  exercise_name: string;
+  exercise_category?: string;
+  order_index?: number;
+  sets?: number;
+  reps?: number;
+  weight_kg?: number;
+  tempo?: string;
+  rest_seconds?: number;
+  duration_seconds?: number;
+  distance_meters?: number;
+  notes?: string;
+}
+
+export interface SessionTemplate {
+  id: string;
+  coach_id: string;
+  template_name: string;
+  training_type: string;
+  notes: string | null;
+  exercises: TemplateExercise[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SessionTemplateCreate {
+  template_name: string;
+  training_type: string;
+  notes?: string;
+  exercises?: TemplateExerciseCreate[];
+}
+
+export interface SessionTemplateUpdate {
+  template_name?: string;
+  training_type?: string;
+  notes?: string;
+  exercises?: TemplateExerciseCreate[];
+}
+
 // Upload types
 export interface UploadResult {
   processed: number;

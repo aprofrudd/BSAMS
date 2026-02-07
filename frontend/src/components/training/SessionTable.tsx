@@ -120,9 +120,9 @@ export function SessionTable({ athleteId, onDataChanged }: SessionTableProps) {
                   <td className="py-2 px-2 text-right whitespace-nowrap">
                     <button
                       onClick={() => setExerciseSessionId(session.id)}
-                      className="text-white/60 hover:text-accent text-xs mr-2 transition-colors"
+                      className="bg-accent/10 text-accent px-2 py-0.5 rounded text-xs mr-2 hover:bg-accent/20 transition-colors"
                     >
-                      Exercises
+                      Add Exercises
                     </button>
                     <button
                       onClick={() => { setEditingSession(session); setShowForm(true); }}

@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { exercisesApi } from '@/lib/api';
 import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
-import type { ExercisePrescription } from '@/lib/types';
+import { ExerciseAutocomplete } from './ExerciseAutocomplete';
+import { TemplatePickerModal } from './TemplatePickerModal';
+import type { ExercisePrescription, ExerciseLibraryItem } from '@/lib/types';
 
 interface ExerciseTableProps {
   sessionId: string;
@@ -29,6 +31,9 @@ export function ExerciseTable({ sessionId, onClose }: ExerciseTableProps) {
   const [restSeconds, setRestSeconds] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Template picker state
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+
   const loadExercises = useCallback(async () => {
     try {
       setLoading(true);
@@ -49,11 +54,20 @@ export function ExerciseTable({ sessionId, onClose }: ExerciseTableProps) {
 
   useEffect(() => {
     function handleEscape(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !showTemplatePicker) onClose();
     }
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [onClose]);
+  }, [onClose, showTemplatePicker]);
+
+  function handleLibrarySelect(item: ExerciseLibraryItem) {
+    setExerciseName(item.exercise_name);
+    if (item.exercise_category) setCategory(item.exercise_category);
+    if (item.default_reps) setReps(String(item.default_reps));
+    if (item.default_weight_kg) setWeightKg(String(item.default_weight_kg));
+    if (item.default_tempo) setTempo(item.default_tempo);
+    if (item.default_rest_seconds) setRestSeconds(String(item.default_rest_seconds));
+  }
 
   async function handleAddExercise(e: React.FormEvent) {
     e.preventDefault();
@@ -172,13 +186,10 @@ export function ExerciseTable({ sessionId, onClose }: ExerciseTableProps) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-white/60 mb-1">Exercise Name</label>
-                <input
-                  type="text"
+                <ExerciseAutocomplete
                   value={exerciseName}
-                  onChange={(e) => setExerciseName(e.target.value)}
-                  className="input w-full text-sm"
-                  placeholder="e.g. Back Squat"
-                  required
+                  onChange={setExerciseName}
+                  onSelect={handleLibrarySelect}
                 />
               </div>
               <div>
@@ -267,17 +278,36 @@ export function ExerciseTable({ sessionId, onClose }: ExerciseTableProps) {
             </div>
           </form>
         ) : (
-          <button
-            onClick={() => {
-              setSetNumber(String((exercises.length > 0 ? Math.max(...exercises.map(e => e.set_number)) : 0) + 1));
-              setShowAddForm(true);
-            }}
-            className="w-full px-3 py-2 rounded text-sm font-medium bg-accent text-[#090A3D] hover:bg-accent/80 transition-colors"
-          >
-            + Add Exercise
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setSetNumber(String((exercises.length > 0 ? Math.max(...exercises.map(e => e.set_number)) : 0) + 1));
+                setShowAddForm(true);
+              }}
+              className="flex-1 px-3 py-2 rounded text-sm font-medium bg-accent text-[#090A3D] hover:bg-accent/80 transition-colors"
+            >
+              + Add Exercise
+            </button>
+            <button
+              onClick={() => setShowTemplatePicker(true)}
+              className="px-3 py-2 rounded text-sm font-medium bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
+            >
+              Import from Template
+            </button>
+          </div>
         )}
       </div>
+
+      {showTemplatePicker && (
+        <TemplatePickerModal
+          sessionId={sessionId}
+          onClose={() => setShowTemplatePicker(false)}
+          onApplied={() => {
+            setShowTemplatePicker(false);
+            loadExercises();
+          }}
+        />
+      )}
     </div>
   );
 }

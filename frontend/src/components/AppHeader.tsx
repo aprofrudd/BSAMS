@@ -19,6 +19,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: 'Testing', href: '/testing', matchPaths: ['/testing', '/'] },
   { label: 'Training', href: '/training', matchPaths: ['/training'] },
+  { label: 'Library', href: '/library', matchPaths: ['/library'] },
   { label: 'Upload', href: '/upload', matchPaths: ['/upload'] },
 ];
 

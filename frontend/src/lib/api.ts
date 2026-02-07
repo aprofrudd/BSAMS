@@ -20,6 +20,12 @@ import type {
   WellnessEntry,
   WellnessEntryCreate,
   WellnessEntryUpdate,
+  ExerciseLibraryItem,
+  ExerciseLibraryCreate,
+  ExerciseLibraryUpdate,
+  SessionTemplate,
+  SessionTemplateCreate,
+  SessionTemplateUpdate,
 } from './types';
 
 const API_BASE = '/api/v1';
@@ -360,6 +366,62 @@ export const wellnessApi = {
 
   deleteEntry: (id: string) =>
     fetchApi<void>(`/wellness/${id}`, { method: 'DELETE' }),
+};
+
+// Exercise Library API
+export const exerciseLibraryApi = {
+  list: (options?: { search?: string; category?: string }) => {
+    const params = new URLSearchParams();
+    if (options?.search) params.set('search', options.search);
+    if (options?.category) params.set('category', options.category);
+    const query = params.toString();
+    return fetchApi<ExerciseLibraryItem[]>(
+      `/exercise-library/${query ? `?${query}` : ''}`
+    );
+  },
+
+  create: (data: ExerciseLibraryCreate) =>
+    fetchApi<ExerciseLibraryItem>('/exercise-library/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: ExerciseLibraryUpdate) =>
+    fetchApi<ExerciseLibraryItem>(`/exercise-library/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    fetchApi<void>(`/exercise-library/${id}`, { method: 'DELETE' }),
+};
+
+// Session Templates API
+export const sessionTemplatesApi = {
+  list: () => fetchApi<SessionTemplate[]>('/session-templates/'),
+
+  get: (id: string) => fetchApi<SessionTemplate>(`/session-templates/${id}`),
+
+  create: (data: SessionTemplateCreate) =>
+    fetchApi<SessionTemplate>('/session-templates/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: SessionTemplateUpdate) =>
+    fetchApi<SessionTemplate>(`/session-templates/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    fetchApi<void>(`/session-templates/${id}`, { method: 'DELETE' }),
+
+  apply: (templateId: string, sessionId: string) =>
+    fetchApi<ExercisePrescription[]>(
+      `/session-templates/${templateId}/apply?session_id=${sessionId}`,
+      { method: 'POST' }
+    ),
 };
 
 // Admin API

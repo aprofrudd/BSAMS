@@ -16,7 +16,6 @@ const TRAINING_TYPES = [
   'Strength',
   'Boxing',
   'Conditioning',
-  'Plyometric',
   'Recovery',
   'Sparring',
   'Pads',

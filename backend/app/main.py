@@ -14,7 +14,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.core.config import get_settings
 from app.core.supabase_client import get_supabase_client
-from app.routers import admin, analysis, athletes, auth, consent, events, exercises, training, uploads, wellness
+from app.routers import admin, analysis, athletes, auth, consent, events, exercise_library, exercises, session_templates, training, uploads, wellness
 
 settings = get_settings()
 
@@ -111,6 +111,8 @@ app.include_router(analysis.router, prefix=settings.api_v1_prefix)
 app.include_router(training.router, prefix=settings.api_v1_prefix)
 app.include_router(exercises.router, prefix=settings.api_v1_prefix)
 app.include_router(wellness.router, prefix=settings.api_v1_prefix)
+app.include_router(exercise_library.router, prefix=settings.api_v1_prefix)
+app.include_router(session_templates.router, prefix=settings.api_v1_prefix)
 app.include_router(consent.router, prefix=settings.api_v1_prefix)
 app.include_router(admin.router, prefix=settings.api_v1_prefix)
 
