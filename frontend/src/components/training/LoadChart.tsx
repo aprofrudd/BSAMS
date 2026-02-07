@@ -6,6 +6,7 @@ import type { TrainingLoadAnalysis } from '@/lib/types';
 
 interface LoadChartProps {
   athleteId: string;
+  dataVersion?: number;
 }
 
 function formatDate(dateStr: string): string {
@@ -28,7 +29,7 @@ function getAcwrLabel(acwr: number | null): string {
   return 'Caution';
 }
 
-export function LoadChart({ athleteId }: LoadChartProps) {
+export function LoadChart({ athleteId, dataVersion }: LoadChartProps) {
   const [analysis, setAnalysis] = useState<TrainingLoadAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +50,7 @@ export function LoadChart({ athleteId }: LoadChartProps) {
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, [loadData, dataVersion]);
 
   if (loading) {
     return (

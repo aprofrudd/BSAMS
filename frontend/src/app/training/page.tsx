@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useAthleteContext } from '@/lib/contexts/AthleteContext';
@@ -14,6 +14,7 @@ export default function TrainingPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const { selectedAthlete } = useAthleteContext();
+  const [dataVersion, setDataVersion] = useState(0);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -40,20 +41,20 @@ export default function TrainingPage() {
       {/* Main Content — full width */}
       {selectedAthlete ? (
         <>
-          <ReadinessIndicator athleteId={selectedAthlete.id} />
+          <ReadinessIndicator athleteId={selectedAthlete.id} dataVersion={dataVersion} />
 
           {/* Two-column layout for Load + Wellness on desktop */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
             <div className="card">
-              <LoadChart athleteId={selectedAthlete.id} />
+              <LoadChart athleteId={selectedAthlete.id} dataVersion={dataVersion} />
             </div>
             <div className="card">
-              <WellnessChart athleteId={selectedAthlete.id} />
+              <WellnessChart athleteId={selectedAthlete.id} onDataChanged={() => setDataVersion((v) => v + 1)} />
             </div>
           </div>
 
           <div className="card">
-            <SessionTable athleteId={selectedAthlete.id} />
+            <SessionTable athleteId={selectedAthlete.id} onDataChanged={() => setDataVersion((v) => v + 1)} />
           </div>
         </>
       ) : (

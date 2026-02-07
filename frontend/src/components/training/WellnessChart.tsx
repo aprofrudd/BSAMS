@@ -7,6 +7,7 @@ import type { WellnessEntry } from '@/lib/types';
 
 interface WellnessChartProps {
   athleteId: string;
+  onDataChanged?: () => void;
 }
 
 const HOOPER_KEYS = [
@@ -27,7 +28,7 @@ function getHooperColor(index: number): string {
   return 'text-red-400';
 }
 
-export function WellnessChart({ athleteId }: WellnessChartProps) {
+export function WellnessChart({ athleteId, onDataChanged }: WellnessChartProps) {
   const [entries, setEntries] = useState<WellnessEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +58,7 @@ export function WellnessChart({ athleteId }: WellnessChartProps) {
     try {
       await wellnessApi.deleteEntry(entryId);
       setEntries((prev) => prev.filter((e) => e.id !== entryId));
+      onDataChanged?.();
     } catch (err) {
       console.error('Failed to delete entry:', err);
     }
@@ -200,6 +202,7 @@ export function WellnessChart({ athleteId }: WellnessChartProps) {
             setShowForm(false);
             setEditingEntry(null);
             loadEntries();
+            onDataChanged?.();
           }}
         />
       )}

@@ -8,9 +8,10 @@ import type { TrainingSession } from '@/lib/types';
 
 interface SessionTableProps {
   athleteId: string;
+  onDataChanged?: () => void;
 }
 
-export function SessionTable({ athleteId }: SessionTableProps) {
+export function SessionTable({ athleteId, onDataChanged }: SessionTableProps) {
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +42,7 @@ export function SessionTable({ athleteId }: SessionTableProps) {
     try {
       await trainingApi.deleteSession(sessionId);
       setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      onDataChanged?.();
     } catch (err) {
       console.error('Failed to delete session:', err);
     }
@@ -151,6 +153,7 @@ export function SessionTable({ athleteId }: SessionTableProps) {
             setShowForm(false);
             setEditingSession(null);
             loadSessions();
+            onDataChanged?.();
           }}
         />
       )}

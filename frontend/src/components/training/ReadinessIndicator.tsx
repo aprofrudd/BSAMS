@@ -6,6 +6,7 @@ import type { TrainingLoadAnalysis, WellnessEntry } from '@/lib/types';
 
 interface ReadinessIndicatorProps {
   athleteId: string;
+  dataVersion?: number;
 }
 
 type ReadinessLevel = 'green' | 'amber' | 'red' | 'unknown';
@@ -50,7 +51,7 @@ const READINESS_CONFIG: Record<ReadinessLevel, { label: string; color: string; b
   unknown: { label: 'No Data', color: 'text-white/60', bgColor: 'bg-secondary-muted/20' },
 };
 
-export function ReadinessIndicator({ athleteId }: ReadinessIndicatorProps) {
+export function ReadinessIndicator({ athleteId, dataVersion }: ReadinessIndicatorProps) {
   const [loadData, setLoadData] = useState<TrainingLoadAnalysis | null>(null);
   const [latestWellness, setLatestWellness] = useState<WellnessEntry | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,7 +74,7 @@ export function ReadinessIndicator({ athleteId }: ReadinessIndicatorProps) {
 
   useEffect(() => {
     loadReadiness();
-  }, [loadReadiness]);
+  }, [loadReadiness, dataVersion]);
 
   if (loading) {
     return (
