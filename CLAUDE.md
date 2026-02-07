@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Boxing Science Athlete Management System (BSAMS) - A commercial SaaS for high-performance athlete management. Supports CMJ, SJ, EUR, and RSI analysis. Multi-tenant: external coaches manage own athletes, benchmark against Boxing Science data, and optionally share anonymised data.
 
-**Status:** All 4 phases complete + Security hardened + Multi-metric dashboard + Inline CRUD + Multi-tenant + Production hardened (Tier 1-3) + Testing/Training restructure (8 phases) - Production deployed
+**Status:** All 4 phases complete + Security hardened + Multi-metric dashboard + Inline CRUD + Multi-tenant + Production hardened (Tier 1-3) + Testing/Training restructure (8 phases) + Exercise database & session templates - Production deployed
 
 ## Tech Stack
 
@@ -22,7 +22,7 @@ Boxing Science Athlete Management System (BSAMS) - A commercial SaaS for high-pe
 cd backend
 pip install -r requirements.txt
 python -m uvicorn app.main:app --reload  # Dev server
-pytest -v                                 # Run all tests (338)
+pytest -v                                 # Run all tests (373)
 pytest tests/test_stat_engine.py -v      # Run specific test file
 ```
 
@@ -47,6 +47,9 @@ npm test         # Run tests
 - `training_sessions` table: session logging with `srpe` generated column (rpe * duration_minutes)
 - `wellness_entries` table: daily questionnaire (5 scores 1-5), UNIQUE(athlete_id, entry_date)
 - `exercise_prescriptions` table: FK to training_sessions with CASCADE delete
+- `exercise_library` table: coach-level reusable exercises with defaults, UNIQUE(coach_id, exercise_name)
+- `session_templates` table: reusable session plans, UNIQUE(coach_id, template_name)
+- `template_exercises` table: FK to session_templates (CASCADE) and exercise_library (SET NULL)
 
 ### Auth & Roles
 - JWT in HttpOnly/Secure/SameSite=Lax cookies (NOT localStorage)
@@ -62,9 +65,9 @@ npm test         # Run tests
 ### Backend Structure
 ```
 backend/app/
-├── routers/     # API endpoints (auth, athletes, events, uploads, analysis, consent, admin, training, exercises, wellness)
+├── routers/     # API endpoints (auth, athletes, events, uploads, analysis, consent, admin, training, exercises, wellness, exercise_library, session_templates)
 ├── services/    # Business logic (csv_ingestion, stat_engine, benchmarks, admin_pool, training_load)
-├── schemas/     # Pydantic models (athlete, event, auth, upload, enums, consent, training_session, wellness, exercise_prescription, metric_registry)
+├── schemas/     # Pydantic models (athlete, event, auth, upload, enums, consent, training_session, wellness, exercise_prescription, exercise_library, session_template, metric_registry)
 └── core/        # Config, Supabase client, security (JWT validation)
 ```
 
@@ -103,6 +106,7 @@ backend/app/
 - `/` → redirects to `/testing`
 - `/testing` — Testing dashboard (CMJ, SJ, EUR, RSI analysis)
 - `/training` — Training page (sessions, wellness, load analysis, exercises)
+- `/library` — Exercise database + session templates (Exercises/Templates tabs)
 - `/upload` — CSV upload
 - `/login` — Authentication
 - AppHeader uses data-driven `NAV_ITEMS` array with `matchPaths` for active state highlighting
@@ -118,10 +122,12 @@ frontend/
 ├── app/
 │   ├── testing/     # Testing dashboard (formerly root page)
 │   ├── training/    # Training sessions, wellness, load analysis
+│   ├── library/     # Exercise database + session templates
 │   ├── upload/      # CSV upload
 │   └── login/       # Authentication
 ├── components/
-│   ├── training/    # SessionLogForm, SessionTable, WellnessForm, WellnessChart, LoadChart, ReadinessIndicator, ExerciseTable
+│   ├── training/    # SessionLogForm, SessionTable, WellnessForm, WellnessChart, LoadChart, ReadinessIndicator, ExerciseTable, ExerciseAutocomplete, TemplatePickerModal
+│   ├── library/     # ExerciseLibraryTable, ExerciseLibraryFormModal, TemplateTable, TemplateFormModal
 │   └── ...          # AppHeader, AthleteCreateModal, AthleteEditModal, AthleteSelector, CsvPreviewTable, DataSharingConsent, DataViewControls, EventFormModal, MetricSelector, MetricBarChart, PerformanceGraph, PerformanceTable, SharedDataView, ZScoreRadar
 └── lib/
     ├── contexts/    # AthleteContext
@@ -182,6 +188,10 @@ Dark mode default with high-contrast white text. Mobile-first (iPad priority).
 37. **Exercise prescriptions:** Nested under training sessions (FK with CASCADE). Sets, reps, weight, tempo, rest, duration, distance
 38. **Metric registry:** Central source of truth for metric definitions (`metric_registry.py` backend, `metricRegistry.ts` frontend). Replaces scattered METRIC_LABELS/ALLOWED_METRIC_KEYS
 39. **Data-driven navigation:** `NAV_ITEMS` array in AppHeader with `matchPaths` for active state. Adding sections requires no component changes
+40. **Exercise library:** Coach-level reusable exercise database with UNIQUE(coach_id, exercise_name). CRUD with ILIKE search and category filter. Defaults pre-fill when selecting from autocomplete
+41. **Exercise autocomplete:** Client-side combobox loads full library on first focus (<200 items), filters locally. Keyboard nav (arrows/enter/escape). Selecting pre-fills name, category, reps, weight, tempo, rest
+42. **Session templates:** Reusable session plans with nested exercises. Replace-all semantics on exercise updates (delete all, re-insert). Template apply expands sets (sets:3 → 3 prescription rows)
+43. **Template exercises soft reference:** `exercise_library_id` uses ON DELETE SET NULL — template survives library deletions, exercise_name stored independently
 
 ## API Endpoints
 
@@ -205,6 +215,10 @@ Dark mode default with high-contrast white text. Mobile-first (iPad priority).
 - `/api/v1/training/analysis/load/{id}` - Training load analysis (sRPE, Monotony, Strain, ACWR)
 - `/api/v1/wellness/` - Wellness entry CRUD (POST/GET/PATCH/DELETE)
 - `/api/v1/wellness/athlete/{id}` - List wellness entries for athlete
+- `/api/v1/exercise-library/` - Exercise library CRUD (POST/GET/PATCH/DELETE, supports ?search= and ?category=)
+- `/api/v1/session-templates/` - Session template CRUD (POST/GET/PATCH/DELETE, nested exercises)
+- `/api/v1/session-templates/{id}` - Get single template with exercises
+- `/api/v1/session-templates/{id}/apply` - Apply template to session (POST, expands sets to prescriptions)
 - `/api/v1/admin/shared-athletes` - Anonymised athletes from opted-in coaches (admin only)
 - `/api/v1/admin/shared-athletes/{id}/events` - Events for shared athlete (admin only)
 
@@ -225,7 +239,7 @@ Dark mode default with high-contrast white text. Mobile-first (iPad priority).
 ### Testing Requirements
 - All bug fixes must have a corresponding test
 - Run full test suite before committing: `python -m pytest tests/ -v`
-- Tests are located in `backend/tests/` (338 total)
+- Tests are located in `backend/tests/` (373 total)
 - Tests use dependency override in conftest.py (not DEV_MODE)
 - All statistical calculations require pytest unit tests
 - Test edge cases: SD=0, division by zero, mass outside known bands
@@ -239,4 +253,4 @@ Dark mode default with high-contrast white text. Mobile-first (iPad priority).
 - **CI/CD:** GitHub Actions runs pytest on push to main
 - **Vercel env:** `NEXT_PUBLIC_API_URL` must be set cleanly (no trailing `\n`)
 - **Railway env:** `FRONTEND_URL` must be set for CORS, `COOKIE_SECURE=true` for HttpOnly cookies, `SUPABASE_KEY` must be the **service_role (secret)** key (not anon), `ENVIRONMENT` (default "production"), `LOG_LEVEL` (default "INFO"), `WEB_CONCURRENCY` (default 2, number of uvicorn workers)
-- **Supabase:** Profiles auto-created on signup/login. Migrations `004`-`008` must be run on Supabase SQL editor (006: training_sessions, 007: wellness_entries, 008: exercise_prescriptions). RLS INSERT policy on profiles table required.
+- **Supabase:** Profiles auto-created on signup/login. Migrations `004`-`011` must be run on Supabase SQL editor (006: training_sessions, 007: wellness_entries, 008: exercise_prescriptions, 009: hooper index wellness, 010: exercise_library, 011: session_templates). RLS INSERT policy on profiles table required.

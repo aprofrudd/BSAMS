@@ -10,6 +10,14 @@ SQL migration scripts for Supabase.
    - `001_create_profiles_table.sql`
    - `002_create_athletes_table.sql`
    - `003_create_performance_events_table.sql`
+   - `004_add_profiles_insert_policy.sql`
+   - `005_create_coach_consents_table.sql`
+   - `006_create_training_sessions.sql`
+   - `007_create_wellness_entries.sql`
+   - `008_create_exercise_prescriptions.sql`
+   - `009_wellness_hooper_index.sql`
+   - `010_create_exercise_library.sql`
+   - `011_create_session_templates.sql`
 
 ## Migration Order
 
@@ -31,6 +39,39 @@ Migrations must be run in numerical order due to foreign key dependencies:
    - GIN index for fast JSONB queries
    - RLS policies via athlete ownership check
 
+4. **004_add_profiles_insert_policy.sql**
+   - Adds RLS INSERT policy on profiles table
+
+5. **005_create_coach_consents_table.sql**
+   - Creates `coach_consents` table for data sharing opt-in
+
+6. **006_create_training_sessions.sql**
+   - Creates `training_sessions` table with `srpe` generated column
+   - RLS policies via athlete ownership chain
+
+7. **007_create_wellness_entries.sql**
+   - Creates `wellness_entries` table (5 scores, 1-5 scale)
+   - UNIQUE(athlete_id, entry_date)
+
+8. **008_create_exercise_prescriptions.sql**
+   - Creates `exercise_prescriptions` table (FK to training_sessions CASCADE)
+   - RLS policies via session → athlete ownership chain
+
+9. **009_wellness_hooper_index.sql**
+   - Migrates wellness to Validated Hooper Index (4 scores, 1-7 scale)
+   - `hooper_index` generated column (sum of 4 scores)
+
+10. **010_create_exercise_library.sql**
+    - Creates `exercise_library` table (coach-level reusable exercises)
+    - UNIQUE(coach_id, exercise_name), default fields for pre-filling
+    - RLS policies: coaches access own exercises only
+
+11. **011_create_session_templates.sql**
+    - Creates `session_templates` table (reusable session plans)
+    - Creates `template_exercises` table (FK CASCADE to templates, SET NULL to library)
+    - UNIQUE(coach_id, template_name)
+    - RLS policies via template ownership chain
+
 ## Row Level Security (RLS)
 
 All tables have RLS enabled. Policies ensure:
@@ -38,6 +79,13 @@ All tables have RLS enabled. Policies ensure:
 - **Profiles**: Users can only read/update their own profile
 - **Athletes**: Coaches can only CRUD their own athletes (`coach_id = auth.uid()`)
 - **Performance Events**: Access granted via athlete ownership chain
+- **Coach Consents**: Coaches access own consent records only
+- **Training Sessions**: Access via athlete ownership chain
+- **Wellness Entries**: Access via athlete ownership chain
+- **Exercise Prescriptions**: Access via session → athlete ownership chain
+- **Exercise Library**: Coaches access own library exercises only (`coach_id = auth.uid()`)
+- **Session Templates**: Coaches access own templates only (`coach_id = auth.uid()`)
+- **Template Exercises**: Access via template ownership chain
 
 ## Key Features
 
@@ -77,7 +125,7 @@ WHERE metrics @> '{"test_type": "CMJ"}'::jsonb;
 
 After running migrations, verify in Supabase Dashboard:
 
-1. **Tables**: Check that `profiles`, `athletes`, `performance_events` exist
+1. **Tables**: Check that `profiles`, `athletes`, `performance_events`, `coach_consents`, `training_sessions`, `wellness_entries`, `exercise_prescriptions`, `exercise_library`, `session_templates`, `template_exercises` exist
 2. **RLS**: Verify RLS is enabled on all tables (shield icon)
 3. **Policies**: Check policies in Authentication → Policies
 4. **Indexes**: Verify indexes in Table Editor → Indexes
@@ -88,6 +136,13 @@ To rollback (use with caution):
 
 ```sql
 -- Drop in reverse order
+DROP TABLE IF EXISTS template_exercises CASCADE;
+DROP TABLE IF EXISTS session_templates CASCADE;
+DROP TABLE IF EXISTS exercise_library CASCADE;
+DROP TABLE IF EXISTS exercise_prescriptions CASCADE;
+DROP TABLE IF EXISTS wellness_entries CASCADE;
+DROP TABLE IF EXISTS training_sessions CASCADE;
+DROP TABLE IF EXISTS coach_consents CASCADE;
 DROP TABLE IF EXISTS performance_events CASCADE;
 DROP TABLE IF EXISTS athletes CASCADE;
 DROP TABLE IF EXISTS profiles CASCADE;
